@@ -1,0 +1,107 @@
+# APRFlow
+
+Análise Preliminar de Riscos (APR) e Permissão de Trabalho (PT) digital.
+Site estático no GitHub Pages, banco no Supabase. Marca da JL Consultoria LTDA.
+
+## Estrutura
+
+```
+aprflow/
+├── index.html            Entrar (login)
+├── app.html              Lista de documentos e editor da APR / PT
+├── admin.html            Usuários, clientes e troca de senha
+├── verificar.html        Página pública aberta pelo QR code do documento
+├── CNAME                 Domínio aprflow.com.br
+├── assets/
+│   ├── css/app.css       Visual do sistema
+│   ├── img/icone.svg     Ícone da aba do navegador
+│   └── js/
+│       ├── config.js     URL e chave pública do Supabase  ← preencher
+│       ├── api.js        Conexão com o banco (funções RPC)
+│       ├── editor.js     Abas, regras, assinaturas e documento
+│       ├── app.js        Lista e navegação
+│       └── admin.js      Administração
+├── sql/
+│   ├── 01_estrutura.sql  Tabelas (rodar uma vez)
+│   ├── 02_funcoes.sql    Funções e regras (rodar de novo a cada atualização)
+│   └── 03_primeiro_acesso.sql  Cria o administrador inicial (uma vez)
+└── .github/workflows/
+    ├── manter-ativo.yml  Ping diário para o Supabase gratuito não pausar
+    └── backup.yml        Backup semanal criptografado
+```
+
+## Como funciona a segurança
+
+- As tabelas ficam fechadas: RLS ligado e nenhuma política. O site não lê nem grava tabelas diretamente.
+- Todo acesso passa por funções no banco, que conferem a sessão, o perfil e a empresa do usuário.
+- As regras de liberação e encerramento também são conferidas no servidor.
+- A chave `anon` em `config.js` é pública por natureza. A chave `service_role` nunca vai para o site.
+- Documentos não são excluídos: um rascunho pode ser cancelado, com motivo registrado.
+
+## Perfis
+
+| Perfil | Pode fazer |
+| --- | --- |
+| Administrador da plataforma | Tudo, em todas as empresas; cadastra clientes |
+| Gestor | Tudo na própria empresa; cadastra usuários |
+| Técnico / Elaborador | Cria e preenche APR, encerra PT |
+| Liberador | Preenche a aba de liberação, libera, suspende, retoma e encerra PT |
+| Consulta | Só visualiza |
+
+## Publicação, passo a passo
+
+### 1. Supabase
+
+1. Crie um projeto novo em supabase.com (região São Paulo).
+2. Em **SQL Editor**, rode nesta ordem: `sql/01_estrutura.sql`, `sql/02_funcoes.sql`.
+3. Edite `sql/03_primeiro_acesso.sql` com seu e-mail, senha e nome, e rode.
+4. Em **Project Settings → API**, copie a **Project URL** e a chave **anon public** para `assets/js/config.js`.
+
+### 2. GitHub
+
+1. Crie o repositório `aprflow` e envie todos os arquivos desta pasta.
+   No plano gratuito do GitHub, o Pages exige repositório público. Isso não expõe dados: eles ficam no Supabase.
+2. Em **Settings → Pages**: Source = *Deploy from a branch*, branch `main`, pasta `/ (root)`.
+3. Em **Custom domain**, informe `aprflow.com.br` e depois marque **Enforce HTTPS**.
+
+### 3. Domínio (Registro.br)
+
+Na zona DNS de `aprflow.com.br`:
+
+| Tipo | Nome | Valor |
+| --- | --- | --- |
+| A | (vazio) | 185.199.108.153 |
+| A | (vazio) | 185.199.109.153 |
+| A | (vazio) | 185.199.110.153 |
+| A | (vazio) | 185.199.111.153 |
+| CNAME | www | SEU-USUARIO.github.io |
+
+### 4. Rotinas automáticas
+
+Em **Settings → Secrets and variables → Actions**, cadastre:
+
+| Segredo | Valor |
+| --- | --- |
+| `SUPABASE_URL` | Project URL |
+| `SUPABASE_ANON_KEY` | Chave anon public |
+| `SUPABASE_DB_URL` | Supabase → Connect → *Session pooler* (com a senha do banco) |
+| `BACKUP_SENHA` | Uma senha forte só para os backups. Guarde fora do GitHub |
+
+O GitHub desativa rotinas agendadas em repositórios sem alterações por 60 dias. Se isso acontecer, reative em **Actions**.
+
+### 5. Primeiro uso
+
+1. Entre em `aprflow.com.br` com o administrador criado no passo 1.
+2. Em **Administração → Clientes**, cadastre a empresa atendida.
+3. Em **Administração → Usuários**, crie os gestores, técnicos e liberadores.
+
+## Restaurar um backup
+
+1. Baixe o arquivo em **Actions → Backup do banco → (execução) → Artifacts**.
+2. Descriptografe: `gpg -d aprflow-AAAA-MM-DD.sql.gz.gpg | gunzip > aprflow.sql`
+3. Num projeto Supabase vazio, rode o `aprflow.sql` no SQL Editor ou com `psql`.
+
+## Atualizações
+
+- Mudou `sql/02_funcoes.sql`? Rode o arquivo de novo no SQL Editor. Os dados não são afetados.
+- Mudou algum arquivo do site? Basta enviar ao GitHub; o Pages publica em cerca de um minuto.

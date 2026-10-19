@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>APRFlow · Verificar PT</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="assets/img/icone.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+<div class="page">
+  <header class="top"><div class="in g">
+    <div class="brand"><b>APRFlow</b><span>Verificação de Permissão de Trabalho</span></div>
+  </div></header>
+  <main class="g">
+    <div class="narrow">
+      <div class="card stack" id="res"><p class="hint" style="margin:0">Consultando…</p></div>
+    </div>
+  </main>
+  <div class="foot-note">Consulta pública da situação do documento. Os dados pessoais da equipe não são exibidos.</div>
+</div>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/api.js"></script>
+<script>
+(async function(){
+  const res = document.getElementById('res'), esc = API.esc;
+  const pad = n => String(n).padStart(2,'0');
+  const fmtDH = s => { if(!s) return '—'; const d=new Date(s); return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const LBL = { rascunho:'Em preparação', liberada:'Liberada', suspensa:'Suspensa', encerrada:'Encerrada', cancelada:'Cancelada', vencida:'Vencida' };
+  const MSG = { rascunho:'A PT ainda não foi liberada. O trabalho não pode começar.', liberada:'Trabalho autorizado dentro da validade abaixo.',
+    suspensa:'Trabalho interrompido. Aguarde nova conferência e retomada.', encerrada:'Trabalho encerrado. Esta PT não vale mais.',
+    cancelada:'Documento cancelado. Não vale como autorização.', vencida:'A validade terminou. O trabalho não pode continuar sem nova PT.' };
+  const c = new URLSearchParams(location.search).get('c');
+  if(!c){ res.innerHTML = '<div class="msg bad">Código de verificação ausente. Leia novamente o QR code do documento.</div>'; return; }
+  try {
+    const d = await API.rpc('verificar_documento', { p_codigo: c });
+    if(!d){ res.innerHTML = '<div class="msg bad">Documento não encontrado. Confira se o QR code está legível e completo.</div>'; return; }
+    res.innerHTML = `
+      <div><div class="hint" style="margin:0;font:500 13px/1 var(--f-mono)">${esc(d.numero)}</div>
+      <div class="verif-st ${d.status}">${LBL[d.status]||esc(d.status)}</div>
+      <p style="margin:0">${MSG[d.status]||''}</p></div>
+      <dl class="kv">
+        <dt>Empresa</dt><dd>${esc(d.empresa||'—')}</dd>
+        <dt>Local</dt><dd>${esc(d.local||'—')}</dd>
+        <dt>Serviço</dt><dd>${esc(d.servico||'—')}</dd>
+        <dt>Validade</dt><dd>${d.validade_ini?`${fmtDH(d.validade_ini)} até ${fmtDH(d.validade_fim)}`:'—'}</dd>
+        ${d.liberada_em?`<dt>Liberada em</dt><dd>${fmtDH(d.liberada_em)}</dd>`:''}
+        ${d.encerrada_em?`<dt>Encerrada em</dt><dd>${fmtDH(d.encerrada_em)}</dd>`:''}
+      </dl>
+      <p class="hint" style="margin:0">Consultado em ${fmtDH(d.consultado_em)}.</p>`;
+  } catch(e){ res.innerHTML = `<div class="msg bad">${esc(e.message)}</div>`; }
+})();
+</script>
+</body>
+</html>

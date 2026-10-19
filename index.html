@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>APRFlow · Entrar</title>
+<meta name="description" content="APRFlow: Análise Preliminar de Riscos e Permissão de Trabalho digital, no celular e no computador.">
+<link rel="icon" href="assets/img/icone.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+<div class="page">
+  <header class="top"><div class="in g">
+    <div class="brand"><b>APRFlow</b><span>Análise de Riscos · Permissão de Trabalho</span></div>
+  </div></header>
+  <main class="g">
+    <div class="narrow">
+      <form class="card stack" id="fLogin" novalidate>
+        <div>
+          <h1 class="login-h">Entrar</h1>
+          <p class="hint" style="margin:0">Use o e-mail e a senha cadastrados pelo gestor da sua empresa.</p>
+        </div>
+        <div class="msg info" id="mInfo" hidden></div>
+        <div class="msg bad" id="mErro" role="alert" hidden></div>
+        <label class="fld"><span>E-mail</span><input type="text" id="email" inputmode="email" autocomplete="username" required></label>
+        <label class="fld"><span>Senha</span><input type="password" id="senha" autocomplete="current-password" required style="width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:10px 11px"></label>
+        <button class="btn pri big" type="submit" id="bEntrar">Entrar</button>
+        <p class="hint" style="margin:0">Esqueceu a senha? Peça ao gestor da sua empresa para definir uma nova.</p>
+      </form>
+    </div>
+  </main>
+  <div class="foot-note">APRFlow · JL Consultoria</div>
+</div>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/api.js"></script>
+<script>
+(async function(){
+  const $ = id => document.getElementById(id);
+  const q = new URLSearchParams(location.search);
+  if(q.get('expirou')){ $('mInfo').textContent = 'Sua sessão terminou. Entre novamente.'; $('mInfo').hidden = false; }
+  if(!API.configurado()){ $('mErro').textContent = 'O site ainda não foi ligado ao banco. Preencha o arquivo assets/js/config.js.'; $('mErro').hidden = false; }
+  else if(API.token() && !q.get('expirou')){
+    try { await API.call('eu'); location.href = 'app.html'; return; } catch(e){}
+  }
+  $('fLogin').addEventListener('submit', async e => {
+    e.preventDefault();
+    $('mErro').hidden = true;
+    const email = $('email').value.trim(), senha = $('senha').value;
+    if(!email || !senha){ $('mErro').textContent = 'Informe e-mail e senha.'; $('mErro').hidden = false; return; }
+    $('bEntrar').disabled = true; $('bEntrar').textContent = 'Entrando…';
+    try {
+      const r = await API.rpc('login', { p_email: email, p_senha: senha });
+      API.salvarSessao(r.token, r.usuario);
+      location.href = 'app.html';
+    } catch(err){
+      $('mErro').textContent = err.message; $('mErro').hidden = false;
+      $('bEntrar').disabled = false; $('bEntrar').textContent = 'Entrar';
+    }
+  });
+})();
+</script>
+</body>
+</html>

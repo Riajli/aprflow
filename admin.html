@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>APRFlow · Administração</title>
+<link rel="icon" href="assets/img/icone.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+<div class="shell">
+  <header class="top"><div class="in g">
+    <a class="brand" href="app.html" style="text-decoration:none;color:inherit"><b>APRFlow</b><span>Análise de Riscos · Permissão de Trabalho</span></a>
+    <div class="sp"></div>
+    <nav style="display:flex;gap:4px">
+      <a class="tlink" href="app.html">Documentos</a>
+      <a class="tlink on" href="admin.html">Administração</a>
+    </nav>
+    <div class="who"><b id="whoNome">…</b><span id="whoInfo"></span></div>
+    <button class="tbtn" id="bSair">Sair</button>
+  </div></header>
+
+  <div class="scroll">
+    <nav class="tabs" aria-label="Seções"><div class="in g" role="tablist" id="admTabs">
+      <button class="tab" data-sec="usuarios" aria-selected="true" id="tUsuarios">Usuários</button>
+      <button class="tab" data-sec="clientes" aria-selected="false" id="tClientes">Clientes</button>
+      <button class="tab" data-sec="senha" aria-selected="false">Minha senha</button>
+    </div></nav>
+    <main class="g" style="padding-block:20px 40px"><div class="wrap">
+
+      <!-- Usuários -->
+      <section id="sUsuarios" class="adm">
+        <div class="stack">
+          <div style="display:flex;align-items:center;gap:10px"><h2 style="margin:0;flex:1">Usuários</h2><button class="btn pri" id="uNovo">+ Novo usuário</button></div>
+          <div id="uLista"><div class="empty">Carregando…</div></div>
+        </div>
+        <form class="card stack" id="fUsuario" novalidate>
+          <h3 style="margin:0" id="uTitulo">Novo usuário</h3>
+          <input type="hidden" id="uId">
+          <label class="fld"><span>Nome <b class="rq">*</b></span><input type="text" id="uNome" autocomplete="off"></label>
+          <label class="fld"><span>E-mail <b class="rq">*</b></span><input type="email" id="uEmail" autocomplete="off"></label>
+          <label class="fld"><span>Perfil</span><select id="uPerfil"></select></label>
+          <label class="fld" id="uClienteF"><span>Cliente</span><select id="uCliente"></select></label>
+          <label class="fld"><span id="uSenhaL">Senha inicial <b class="rq">*</b></span><input type="password" id="uSenha" autocomplete="new-password" placeholder="Mínimo de 8 caracteres"></label>
+          <label class="ck" style="padding:0"><input type="checkbox" id="uAtivo" checked><span>Usuário ativo</span></label>
+          <div class="msg bad" id="uErro" hidden></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" type="submit">Salvar</button><button class="btn ghost" type="button" id="uLimpar">Limpar</button></div>
+          <div class="hint" style="margin:0" id="perfisAjuda"></div>
+        </form>
+      </section>
+
+      <!-- Clientes -->
+      <section id="sClientes" class="adm" hidden>
+        <div class="stack">
+          <div style="display:flex;align-items:center;gap:10px"><h2 style="margin:0;flex:1">Clientes</h2><button class="btn pri" id="cNovo">+ Novo cliente</button></div>
+          <div id="cLista"><div class="empty">Carregando…</div></div>
+        </div>
+        <form class="card stack" id="fCliente" novalidate>
+          <h3 style="margin:0" id="cTitulo">Novo cliente</h3>
+          <input type="hidden" id="cId">
+          <label class="fld"><span>Razão social ou nome <b class="rq">*</b></span><input type="text" id="cNome" autocomplete="off"></label>
+          <label class="fld"><span>CNPJ</span><input type="text" id="cCnpj" maxlength="18" placeholder="00.000.000/0000-00" autocomplete="off"><em class="err" id="cCnpjErr" hidden>CNPJ inválido. Confira os números.</em></label>
+          <label class="ck" style="padding:0"><input type="checkbox" id="cAtivo" checked><span>Cliente ativo (usuários podem entrar)</span></label>
+          <div class="msg bad" id="cErro" hidden></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" type="submit">Salvar</button><button class="btn ghost" type="button" id="cLimpar">Limpar</button></div>
+        </form>
+      </section>
+
+      <!-- Minha senha -->
+      <section id="sSenha" hidden>
+        <form class="card stack narrow" id="fSenha" novalidate style="margin:0">
+          <h2 style="margin:0">Alterar minha senha</h2>
+          <label class="fld"><span>Senha atual</span><input type="password" id="sAtual" autocomplete="current-password"></label>
+          <label class="fld"><span>Nova senha</span><input type="password" id="sNova" autocomplete="new-password" placeholder="Mínimo de 8 caracteres"></label>
+          <label class="fld"><span>Repita a nova senha</span><input type="password" id="sNova2" autocomplete="new-password"></label>
+          <div class="msg bad" id="sErro" hidden></div>
+          <button class="btn pri" type="submit">Alterar senha</button>
+        </form>
+      </section>
+
+    </div></main>
+  </div>
+</div>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/admin.js"></script>
+</body>
+</html>
