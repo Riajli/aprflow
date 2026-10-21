@@ -94,3 +94,20 @@ alter table public.atividades enable row level security;
 
 revoke all on all tables    in schema public from anon, authenticated;
 revoke all on all sequences in schema public from anon, authenticated;
+
+-- =====================================================================
+-- Versão 2 (pode rodar de novo em bancos já existentes: só acrescenta)
+-- =====================================================================
+
+-- Endereço do cliente
+alter table public.clientes   add column if not exists endereco     jsonb not null default '{}'::jsonb;
+
+-- Lixeira de documentos (30 dias)
+alter table public.documentos add column if not exists excluido_em  timestamptz;
+alter table public.documentos add column if not exists excluido_por uuid references public.usuarios(id);
+create index if not exists documentos_lixeira on public.documentos(excluido_em) where excluido_em is not null;
+
+-- O registro de atividades continua existindo quando um documento é apagado de vez
+alter table public.atividades drop constraint if exists atividades_documento_id_fkey;
+alter table public.atividades add constraint atividades_documento_id_fkey
+  foreign key (documento_id) references public.documentos(id) on delete set null;

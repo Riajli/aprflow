@@ -14,6 +14,25 @@
     const dv=(n,w)=>{ const r=w.reduce((s,x,i)=>s+val(c[i])*x,0)%11; return r<2?0:11-r; };
     return dv(12,w1)===+c[12] && dv(13,w2)===+c[13]; }
 
+  /* Endereço com busca de CEP (ViaCEP, com BrasilAPI de reserva) */
+  const END_IDS = { cep:'cCep', log:'cLog', num:'cNum', comp:'cComp', bairro:'cBairro', cidade:'cCidade', uf:'cUf' };
+  const maskCEP = v => String(v).replace(/\D/g,'').slice(0,8).replace(/^(\d{5})(\d)/,'$1-$2');
+  const tx = v => (v==null?'':String(v)).trim();
+  function lerEndereco(){ const e={}; for(const [k,id] of Object.entries(END_IDS)) e[k]=tx(el(id).value); e.uf=e.uf.toUpperCase(); return e; }
+  function escreverEndereco(e){ e=e||{}; for(const [k,id] of Object.entries(END_IDS)) el(id).value = e[k] || ''; el('cCepSt').textContent='Digite o CEP para preencher o endereço, ou preencha à mão.'; }
+  async function buscarCep(cep){
+    const st=el('cCepSt'); st.textContent='Buscando CEP…';
+    let d=null;
+    try{ const r=await fetch(`https://viacep.com.br/ws/${cep}/json/`); if(r.ok){ const j=await r.json(); d=j.erro?false:{log:j.logradouro,bairro:j.bairro,cidade:j.localidade,uf:j.uf}; } }catch(e){}
+    if(d==null){ try{ const r=await fetch(`https://brasilapi.com.br/api/cep/v1/${cep}`); if(r.ok){ const j=await r.json(); d={log:j.street,bairro:j.neighborhood,cidade:j.city,uf:j.state}; } else if(r.status===404) d=false; }catch(e){} }
+    if(el('cCep').value.replace(/\D/g,'')!==cep) return;
+    if(d){ if(d.log) el('cLog').value=d.log; if(d.bairro) el('cBairro').value=d.bairro; if(d.cidade) el('cCidade').value=d.cidade; if(d.uf) el('cUf').value=d.uf;
+      st.textContent = d.log ? 'Endereço encontrado. Informe o número.' : 'CEP geral da cidade. Complete logradouro e bairro.'; el(d.log?'cNum':'cLog').focus(); }
+    else if(d===false) st.textContent='CEP não encontrado. Preencha o endereço manualmente.';
+    else st.textContent='Não foi possível consultar o CEP agora. Preencha o endereço manualmente.';
+  }
+  const cidadeUf = e => [tx(e&&e.cidade), tx(e&&e.uf)].filter(Boolean).join(' - ');
+
   let U;
   try { U = await API.exigirLogin(); } catch(e){ document.querySelector('main').innerHTML = `<div class="msg bad">${esc(e.message)}</div>`; return; }
   if(!U) return;
@@ -92,12 +111,13 @@
 
   /* ---------- Clientes ---------- */
   let listaClientes = [];
-  function limparCliente(){ el('cId').value=''; el('cNome').value=''; el('cCnpj').value=''; el('cAtivo').checked=true; el('cErro').hidden=true; el('cCnpjErr').hidden=true; el('cTitulo').textContent='Novo cliente'; }
+  function limparCliente(){ el('cId').value=''; el('cNome').value=''; el('cCnpj').value=''; el('cAtivo').checked=true; el('cErro').hidden=true; el('cCnpjErr').hidden=true; el('cTitulo').textContent='Novo cliente'; escreverEndereco({}); }
+  el('cCep').addEventListener('input', () => { const v=maskCEP(el('cCep').value); el('cCep').value=v; const d=v.replace(/\D/g,''); if(d.length===8) buscarCep(d); });
   async function carregarClientes(){
     try {
       listaClientes = await API.call('listar_clientes');
       el('cLista').innerHTML = listaClientes.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Cliente</th><th>Usuários</th><th>Documentos</th><th>Situação</th></tr></thead><tbody>
-        ${listaClientes.map(c => `<tr data-id="${c.id}" tabindex="0"><td><b>${esc(c.nome)}</b><div class="muted">${esc(c.cnpj||'Sem CNPJ')}</div></td>
+        ${listaClientes.map(c => `<tr data-id="${c.id}" tabindex="0"><td><b>${esc(c.nome)}</b><div class="muted">${esc(c.cnpj||'Sem CNPJ')}${cidadeUf(c.endereco)?' · '+esc(cidadeUf(c.endereco)):''}</div></td>
           <td>${c.usuarios}</td><td>${c.documentos}</td><td><span class="st ${c.ativo?'liberada':'cancelada'}">${c.ativo?'Ativo':'Inativo'}</span></td></tr>`).join('')}
         </tbody></table></div>` : '<div class="empty">Nenhum cliente cadastrado. Cadastre o primeiro ao lado.</div>';
     } catch(e){ el('cLista').innerHTML = `<div class="msg bad">${esc(e.message)}</div>`; }
@@ -105,7 +125,7 @@
   el('cLista').addEventListener('click', e => {
     const tr = e.target.closest('tr[data-id]'); if(!tr) return;
     const c = listaClientes.find(x => x.id === tr.dataset.id); if(!c) return;
-    el('cId').value=c.id; el('cNome').value=c.nome; el('cCnpj').value=c.cnpj||''; el('cAtivo').checked=c.ativo;
+    el('cId').value=c.id; el('cNome').value=c.nome; el('cCnpj').value=c.cnpj||''; el('cAtivo').checked=c.ativo; escreverEndereco(c.endereco);
     el('cTitulo').textContent='Editar cliente'; el('cErro').hidden=true; el('cNome').focus();
   });
   el('cCnpj').addEventListener('input', () => { const v = maskCNPJ(el('cCnpj').value); el('cCnpj').value = v; const bad = v.length >= 18 && !cnpjOk(v); el('cCnpj').classList.toggle('invalid', bad); el('cCnpjErr').hidden = !bad; });
@@ -116,7 +136,7 @@
     const cnpj = el('cCnpj').value.trim();
     if(cnpj && !cnpjOk(cnpj)){ el('cErro').textContent = 'CNPJ inválido. Confira os números.'; el('cErro').hidden = false; return; }
     try {
-      await API.call('salvar_cliente', { p_id: el('cId').value || null, p_nome: el('cNome').value, p_cnpj: cnpj, p_ativo: el('cAtivo').checked });
+      await API.call('salvar_cliente', { p_id: el('cId').value || null, p_nome: el('cNome').value, p_cnpj: cnpj, p_ativo: el('cAtivo').checked, p_endereco: lerEndereco() });
       API.toast('Cliente salvo.'); limparCliente(); carregarClientes();
     } catch(err){ el('cErro').textContent = err.message; el('cErro').hidden = false; }
   });

@@ -19,6 +19,8 @@ aprflow/
 │       ├── config.js     URL e chave pública do Supabase  ← preencher
 │       ├── api.js        Conexão com o banco (funções RPC)
 │       ├── editor.js     Abas, regras, assinaturas e documento
+│       ├── pdf.js        PDF do documento (texto, cabeçalho, rodapé, marca d'água)
+│       ├── assinatura.js Recorte das assinaturas
 │       ├── app.js        Lista e navegação
 │       └── admin.js      Administração
 ├── sql/
@@ -36,7 +38,7 @@ aprflow/
 - Todo acesso passa por funções no banco, que conferem a sessão, o perfil e a empresa do usuário.
 - As regras de liberação e encerramento também são conferidas no servidor.
 - A chave `anon` em `config.js` é pública por natureza. A chave `service_role` nunca vai para o site.
-- Documentos não são excluídos: um rascunho pode ser cancelado, com motivo registrado.
+- Documentos vão para a lixeira por 30 dias antes de serem apagados de vez (rascunho e cancelado: gestor ou administrador; encerrado: só o administrador, digitando o número). PT liberada ou suspensa não pode ser apagada. A limpeza da lixeira roda junto com o ping diário.
 
 ## Perfis
 
@@ -105,3 +107,9 @@ O GitHub desativa rotinas agendadas em repositórios sem alterações por 60 dia
 
 - Mudou `sql/02_funcoes.sql`? Rode o arquivo de novo no SQL Editor. Os dados não são afetados.
 - Mudou algum arquivo do site? Basta enviar ao GitHub; o Pages publica em cerca de um minuto.
+
+## Atualizar da versão 1 para a versão 2
+
+1. **Supabase → SQL Editor:** rode de novo `sql/01_estrutura.sql` e depois `sql/02_funcoes.sql`. Confirme o aviso de operação destrutiva. Os dados existentes são mantidos.
+2. **GitHub:** envie os arquivos alterados (Add file → Upload files), substituindo os antigos: `app.html`, `admin.html`, `README.md`, a pasta `assets` e a pasta `sql`. Não é preciso mexer em `config.js` nem na pasta `.github`.
+3. Abra o site com **Ctrl + F5** para o navegador buscar os arquivos novos.

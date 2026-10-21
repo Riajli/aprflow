@@ -144,6 +144,12 @@ const ENC = [
  ['x_ferr','Ferramentas e materiais recolhidos'],['x_bloq','Bloqueios, isolamentos e sinalizações removidos'],
  ['x_equipe','Toda a equipe fora da área de risco']
 ];
+const DECLARACAO = [
+ 'Esta Análise Preliminar de Riscos (APR) subsidia a liberação do início das atividades e é válida exclusivamente para os trabalhadores nela relacionados e para a atividade aqui descrita. Havendo inclusão de novos trabalhadores ou execução de atividades distintas, o documento deve ser revisado, atualizado e reemitido.',
+ 'Além das medidas previstas nesta APR, se após o início das atividades forem identificados novos riscos ou alterações nas condições de trabalho, devem ser adotadas medidas adicionais de controle, registradas neste documento, desde que não alterem a natureza da atividade.',
+ 'Os trabalhadores relacionados devem cumprir as normas de segurança aplicáveis, os procedimentos internos, as ordens de serviço e as instruções recebidas nos treinamentos para os quais foram capacitados e autorizados pela empresa.',
+ 'Ocorrendo evento não previsto, risco não avaliado nesta análise, condição impeditiva, alteração da equipe, do local ou do método de trabalho, ou término da validade, esta Análise Preliminar de Riscos e a respectiva Permissão de Trabalho perdem o efeito imediatamente. A atividade deve ser interrompida e só poderá ser retomada após a emissão de um novo documento.'
+];
 const P_LBL = ['','Improvável','Pouco provável','Provável','Muito provável'];
 const S_LBL = ['','Leve','Moderada','Grave','Gravíssima'];
 const TABS = [['ident','Identificação'],['ativ','Atividades críticas'],['riscos','Riscos'],['medidas','Medidas e EPI'],['equipe','Equipe'],['emerg','Emergência'],['lib','Liberação da PT'],['enc','Encerramento'],['doc','Documento']];
@@ -206,7 +212,7 @@ function normalizar(doc){
   s.emerg.hospitais.forEach(h=>{ h.addr = mesclar(END0(), h.addr||{}); });
   if(!s.emerg.hospitais.length) s.emerg.hospitais=[{nome:'',addr:END0(),tel:'',km:'',min:''}];
   s.meta = { ...s.meta, numero:doc.numero, status:doc.status, liberadaEm:doc.liberada_em, encerradaEm:doc.encerrada_em,
-             eventos:doc.eventos||[], verif:doc.codigo, cliente:doc.cliente_nome };
+             eventos:doc.eventos||[], verif:doc.codigo, cliente:doc.cliente_nome, clienteEnd:doc.cliente_endereco||{} };
   return s;
 }
 let state = null;   /* documento aberto */
@@ -342,12 +348,13 @@ function inp(k,label,o={}){
 function chk(k,label,o={}){ return `<label class="ck ${o.cls||''}"><input type="checkbox" id="${fid(k)}" data-k="${k}" ${get(k)?'checked':''}><span>${label}${o.tag?`<span class="tag">${o.tag}</span>`:''}</span></label>`; }
 function sigBlock(k,label){
   const v=get(k), em=get(k.replace(/\.ass$/,'.em'));
-  return `<div class="fld"><span>${label}</span><div class="sig">${v?`<img src="${v}" alt="Assinatura"><span class="when">${fmtDH(em)}</span><button type="button" class="btn ghost" data-act="sign" data-k="${k}" data-label="${esc(label)}">Refazer</button>`:`<button type="button" class="btn" data-act="sign" data-k="${k}" data-label="${esc(label)}">✍ Assinar</button>`}</div></div>`;
+  return `<div class="fld"><span>${label}</span><div class="sig">${v?`<img src="${v}" data-sig="${v}" alt="Assinatura"><span class="when">${fmtDH(em)}</span><button type="button" class="btn ghost" data-act="sign" data-k="${k}" data-label="${esc(label)}">Refazer</button>`:`<button type="button" class="btn" data-act="sign" data-k="${k}" data-label="${esc(label)}">✍ Assinar</button>`}</div></div>`;
 }
 
 const cepSt = {};
 function endBlock(base,title,o={}){
-  return `<div class="addr"><div class="addr-h">${title}${o.req?' <b class="rq">*</b>':''}</div><div class="ag2">
+  const copiar = o.copiar ? `<button type="button" class="btn ghost btn-sm" data-act="copiarEnd" data-base="${base}">Copiar endereço do cadastro</button>` : '';
+  return `<div class="addr"><div class="addr-h" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="flex:1">${title}${o.req?' <b class="rq">*</b>':''}</span>${copiar}</div><div class="ag2">
     ${inp(base+'.cep','CEP',{mask:'cep',inputmode:'numeric',ph:'00000-000',cls:'a-cep'})}
     <div class="cepst a-st" data-st="${base}">${esc(cepSt[base]||'Digite o CEP para preencher o endereço, ou preencha à mão.')}</div>
     ${inp(base+'.log','Logradouro',{cls:'a-log',map:1})}
@@ -397,7 +404,7 @@ T.ident = () => `
     <p class="hint" style="margin:14px 0 0">O número é gerado pelo sistema, em sequência por empresa e ano.</p>
   </section>
   <section class="box stack"><h3 style="margin:0">Endereços</h3>
-    ${endBlock('id.endEmpresa','Endereço da empresa')}
+    ${endBlock('id.endEmpresa','Endereço da empresa',{copiar:1})}
     ${endBlock('id.endLocal','Endereço do local do serviço')}
     <p class="hint" style="margin:0">O endereço do local é a origem da rota até os hospitais.</p>
   </section></div>
@@ -629,7 +636,7 @@ T.doc = () => {
   const s=state, rk=riscosOn(), x=b=>`<span class="bx">${b?'X':''}</span>`;
   const sel = (list,base)=>list.filter(([id])=>get(`${base}.${id}`)).map(([,n])=>`<div>☑ ${esc(n)}</div>`).join('');
   const tels = s.emerg.tel.filter(t=>t.s.trim()||t.t.trim());
-  const sigImg = (a,em) => a?`<img class="simg" src="${a}" alt="Assinatura"><div class="note">${fmtDH(em)}</div>`:'';
+  const sigImg = (a,em) => a?`<div class="sigcell"><img class="simg" src="${a}" data-sig="${a}" alt="Assinatura"><div class="note">${fmtDH(em)}</div></div>`:'';
   return `
 <div class="banner no-print"><span style="flex:1;min-width:220px">O QR code leva à página de verificação, que mostra a situação atualizada da PT para quem estiver no local.</span><button class="btn pri" data-act="pdf">Baixar PDF</button><button class="btn" data-act="imprimir">Imprimir</button></div>
 <div class="docwrap"><article class="sheet" lang="pt-BR">
@@ -672,27 +679,24 @@ T.doc = () => {
   ${fmtEnd(s.id.endLocal)?`<div class="note" style="margin:-6px 0 10px">Rota a partir de: ${esc(fmtEnd(s.id.endLocal))}</div>`:''}
   <div class="sh">Trabalhadores executantes</div>
   <table><tr><th>Nome</th><th>Função</th><th>CPF</th><th>Matrícula</th><th>Treinamentos</th><th>ASO</th><th style="width:20%">Ciência</th></tr>
-    ${s.equipe.map(w=>`<tr><td>${esc(w.nome)}</td><td>${esc(w.funcao)}</td><td>${esc(w.cpf)}</td><td>${esc(w.mat)}</td><td>${Object.keys(TREIN).filter(t=>w.trein?.[t]).map(t=>TREIN[t]).join(', ')||'—'}</td><td>${w.aso?'Apto':'—'}</td><td>${sigImg(w.ass,w.em)}</td></tr>`).join('')}
+    ${s.equipe.map(w=>`<tr><td>${esc(w.nome)}</td><td>${esc(w.funcao)}</td><td>${esc(w.cpf)}</td><td>${esc(w.mat)}</td><td>${Object.keys(TREIN).filter(t=>w.trein?.[t]).map(t=>TREIN[t]).join(', ')||'—'}</td><td>${w.aso?'Apto':'—'}</td><td class="sigtd">${sigImg(w.ass,w.em)}</td></tr>`).join('')}
   </table>
   <div class="sh">Permissão de trabalho – liberação</div>
   <table>
     <tr><th style="width:22%">Validade</th><td colspan="3">${fmtDH(s.lib.ini)} até ${fmtDH(s.lib.fim)} ${s.meta.liberadaEm?` · Liberada em ${fmtDH(s.meta.liberadaEm)}`:''}</td></tr>
     <tr><th>Conferências</th><td colspan="3">${[...requisitos().map(r=>[s.lib.req[r.key],r.txt]),...GERAIS.map(g=>[s.lib.gerais[g[0]],g[1]])].map(([o,t])=>`<div>${o?'<span class="ok">✓</span>':'☐'} ${t}</div>`).join('')}</td></tr>
     <tr><th>Elaborado por</th><td>${esc(s.lib.elaborador.nome)}<div class="note">${esc(s.lib.elaborador.funcao)}</div>${tx(s.lib.elaborador.regNum)?`<div class="note">Registro ${esc(s.lib.elaborador.regTipo)} nº ${esc(s.lib.elaborador.regNum)}</div>`:''}</td><th style="width:16%">Liberado por</th><td>${esc(s.lib.liberador.nome)}<div class="note">${esc(s.lib.liberador.funcao)}</div>${tx(s.lib.liberador.cpf)?`<div class="note">CPF ${esc(s.lib.liberador.cpf)}</div>`:''}</td></tr>
-    <tr><th>Assinatura</th><td>${sigImg(s.lib.elaborador.ass,s.lib.elaborador.em)}</td><th>Assinatura</th><td>${sigImg(s.lib.liberador.ass,s.lib.liberador.em)}</td></tr>
+    <tr><th>Assinatura</th><td class="sigtd">${sigImg(s.lib.elaborador.ass,s.lib.elaborador.em)}</td><th>Assinatura</th><td class="sigtd">${sigImg(s.lib.liberador.ass,s.lib.liberador.em)}</td></tr>
   </table>
   <div class="sh">Encerramento</div>
   <table>
     <tr><th style="width:22%">Conferências</th><td colspan="3">${ENC.map(e=>`<div>${s.enc.chk[e[0]]?'<span class="ok">✓</span>':'☐'} ${e[1]}</div>`).join('')}</td></tr>
     <tr><th>Situação</th><td>${s.meta.encerradaEm?(s.enc.situacao==='concluido'?'Concluído':'Não concluído'):'—'}</td><th style="width:16%">Encerrada em</th><td>${fmtDH(s.meta.encerradaEm)}</td></tr>
-    <tr><th>Responsável</th><td>${esc(s.enc.resp.nome)}</td><th>Assinatura</th><td>${sigImg(s.enc.resp.ass,s.enc.resp.em)}</td></tr>
+    <tr><th>Responsável</th><td>${esc(s.enc.resp.nome)}</td><th>Assinatura</th><td class="sigtd">${sigImg(s.enc.resp.ass,s.enc.resp.em)}</td></tr>
     ${s.enc.obs.trim()?`<tr><th>Observações</th><td colspan="3">${esc(s.enc.obs)}</td></tr>`:''}
   </table>
   <div class="pr decl" style="border-top:1px solid var(--paper-line);margin-top:10px">
-    <p>Esta Análise Preliminar de Riscos (APR) subsidia a liberação do início das atividades e é válida exclusivamente para os trabalhadores nela relacionados e para a atividade aqui descrita. Havendo inclusão de novos trabalhadores ou execução de atividades distintas, o documento deve ser revisado, atualizado e reemitido.</p>
-    <p>Além das medidas previstas nesta APR, se após o início das atividades forem identificados novos riscos ou alterações nas condições de trabalho, devem ser adotadas medidas adicionais de controle, registradas neste documento, desde que não alterem a natureza da atividade.</p>
-    <p>Os trabalhadores relacionados devem cumprir as normas de segurança aplicáveis, os procedimentos internos, as ordens de serviço e as instruções recebidas nos treinamentos para os quais foram capacitados e autorizados pela empresa.</p>
-    <p><b>Ocorrendo evento não previsto, risco não avaliado nesta análise, condição impeditiva, alteração da equipe, do local ou do método de trabalho, ou término da validade, esta Análise Preliminar de Riscos e a respectiva Permissão de Trabalho perdem o efeito imediatamente. A atividade deve ser interrompida e só poderá ser retomada após a emissão de um novo documento.</b></p>
+    ${DECLARACAO.map((p,i)=>i===DECLARACAO.length-1?`<p><b>${p}</b></p>`:`<p>${p}</p>`).join('')}
   </div>
   ${s.meta.eventos.length?`<div class="sh">Histórico</div><table>${s.meta.eventos.map(e=>`<tr><td style="width:24%">${fmtDH(e.em)}</td><td>${esc(e.txt)}</td></tr>`).join('')}</table>`:''}
 </article></div>`;
@@ -711,6 +715,7 @@ function renderTab(){
   h += locked ? `<fieldset disabled>${T[cur]()}</fieldset>` : T[cur]();
   p.innerHTML = h; p.scrollTop = top;
   if(cur==='doc') desenharQR();
+  if(window.Assin) Assin.aplicar(p);
   renderChrome();
 }
 function renderChrome(){
@@ -769,6 +774,11 @@ EDROOT.addEventListener('click', e=>{
   if(a==='rmWorker'){ state.equipe.splice(+b.dataset.i,1); save(); return renderTab(); }
   if(a==='addImp'){ state.impExtra.push({txt:''}); save(); renderTab(); const f=document.getElementById(fid(`impExtra.${state.impExtra.length-1}.txt`)); f&&f.focus(); return; }
   if(a==='rmImp'){ const i=+b.dataset.i, n=state.impExtra.length, im=state.lib.imped; state.impExtra.splice(i,1); for(let j=i;j<n;j++){ if(j+1<n && im['ix_'+(j+1)]) im['ix_'+j]=im['ix_'+(j+1)]; else delete im['ix_'+j]; } save(); return renderTab(); }
+  if(a==='copiarEnd'){
+    const e = state.meta.clienteEnd || {}, base = b.dataset.base;
+    if(!['log','cidade','cep'].some(k => tx(e[k]))){ API.toast('O cadastro deste cliente ainda não tem endereço. Preencha em Administração → Clientes.','bad'); return; }
+    set(base, mesclar(END0(), e)); setSt(base,'Endereço copiado do cadastro do cliente. Ajuste se precisar.'); renderTab(); API.toast('Endereço copiado do cadastro.'); return;
+  }
   if(a==='addRisco'){ state.riscosExtra.push({nome:'',p:null,s:null,medida:''}); save(); renderTab(); const f=document.getElementById(fid(`riscosExtra.${state.riscosExtra.length-1}.nome`)); f&&f.focus(); return; }
   if(a==='rmRisco'){ state.riscosExtra.splice(+b.dataset.i,1); save(); return renderTab(); }
   if(a==='addHosp'){ state.emerg.hospitais.push({nome:'',addr:END0(),tel:'',km:'',min:''}); save(); renderTab(); const p=$('panel'); p.scrollTop=p.scrollHeight; return; }
@@ -826,16 +836,10 @@ function desenharQR(){
   box.innerHTML=''; new QRCode(box, { text: urlVerificacao(), width: 156, height: 156, correctLevel: QRCode.CorrectLevel.M });
 }
 async function baixarPDF(){
-  const el=document.querySelector('.sheet'); if(!el || !window.html2pdf){ API.toast('Gerador de PDF indisponível. Use Imprimir.','bad'); return; }
+  await salvarAgora();
   API.toast('Gerando PDF…');
-  try {
-    await html2pdf().set({
-      margin:[8,8,10,8], filename:`${state.meta.numero}.pdf`,
-      image:{type:'jpeg',quality:0.95}, html2canvas:{scale:2,useCORS:true,windowWidth:1000},
-      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
-      pagebreak:{mode:['css','legacy'], avoid:['tr','.pr p','.ag div','.tt']}
-    }).from(el).save();
-  } catch(e){ API.toast('Não foi possível gerar o PDF. Use Imprimir.','bad'); }
+  try { const pdf = await APRPDF.gerarDeEstado(state); pdf.save(APRPDF.nomeArquivo(state)); }
+  catch(e){ API.toast(e.message || 'Não foi possível gerar o PDF. Use Imprimir.','bad'); }
 }
 
 /* ---------- Assinatura ---------- */
@@ -853,12 +857,15 @@ function closeSig(){ $('sigModal').hidden=true; sigKey=null; }
 function saveSig(){ if(!drawn) { $('sigSub').textContent='Faça a assinatura no quadro antes de confirmar.'; return; }
   set(sigKey, assinaturaReduzida()); set(sigKey.replace(/\.ass$/,'.em'), new Date().toISOString());
   $('sigSub').textContent='Assine com o dedo ou o mouse no quadro abaixo.'; closeSig(); renderTab(); }
+/* Guarda só o traço (sem espaço em branco nem linha-guia), com no máximo 600 x 200 px */
 function assinaturaReduzida(){
-  const W=360, H=120, o=document.createElement('canvas'); o.width=W; o.height=H;
-  const c=o.getContext('2d'); c.fillStyle='#fff'; c.fillRect(0,0,W,H);
-  const k=Math.min(W/cv.width, H/cv.height), w=cv.width*k, h=cv.height*k;
-  c.drawImage(cv, (W-w)/2, (H-h)/2, w, h);
-  return o.toDataURL('image/png');
+  const r = Assin.recortar(cv), c = document.createElement('canvas'), x = c.getContext('2d');
+  if(!r){ c.width = 360; c.height = 120; x.fillStyle = '#fff'; x.fillRect(0,0,360,120); x.drawImage(cv,0,0,360,120); return c.toDataURL('image/png'); }
+  const k = Math.min(1, 600 / r.w, 200 / r.h);
+  c.width = Math.max(1, Math.round(r.w * k)); c.height = Math.max(1, Math.round(r.h * k));
+  x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+  x.drawImage(r.canvas, 0, 0, c.width, c.height);
+  return c.toDataURL('image/png');
 }
 const pt = e => { const r=cv.getBoundingClientRect(); return [e.clientX-r.left, e.clientY-r.top]; };
 cv.addEventListener('pointerdown', e=>{ drawing=true; cv.setPointerCapture(e.pointerId); const [x,y]=pt(e); ctx.strokeStyle='#111'; ctx.lineWidth=2.3; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.beginPath(); ctx.moveTo(x,y); });
@@ -878,6 +885,7 @@ window.Editor = {
     return doc;
   },
   salvarAgora,
+  normalizar,
   temPendente: () => ED.pendente,
   set onVoltar(fn){ ED.onVoltar = fn; },
   fechar(){ state = null; ED.id = null; }

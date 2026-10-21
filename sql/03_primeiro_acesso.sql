@@ -5,4 +5,4 @@
 -- Depois de entrar no site, altere a senha em Administração → Minha senha.
 -- =====================================================================
 
-select public.criar_admin_inicial('jroliveira', 'Luca1010@@', 'Jair Ronaldo de Oliveira');
+select public.criar_admin_inicial('seu-email@exemplo.com.br', 'troque-esta-senha', 'Jair Ronaldo de Oliveira');

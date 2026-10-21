@@ -365,3 +365,33 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
 .scroll{overflow:auto;min-height:0}
 #vEdit.app{height:auto;min-height:0;grid-template-columns:minmax(0,1fr)}
 @media (max-width:640px){ .who{display:none} .top nav .tlink{padding:7px 6px} }
+
+/* Assinaturas no documento: centralizadas e do tamanho da caixa */
+.sheet td.sigtd{text-align:center;vertical-align:middle;height:22mm;padding:3px 6px}
+.sheet .sigcell{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:100%}
+.sheet .sigcell .simg{display:block;height:auto;max-height:58px;max-width:100%;width:auto;object-fit:contain}
+.sheet .sigcell .note{text-align:center}
+.sig img{object-fit:contain}
+.btn-sm{padding:6px 10px;font-size:13px}
+.sheet .simg{height:auto}
+
+/* Lista: seleção, ações por linha e lixeira */
+.selbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;background:var(--brand-soft);border-radius:var(--r)}
+.selbar span{flex:1;min-width:160px;font-weight:600}
+.tbl .c-sel{width:34px;padding-right:0}
+.tbl .c-sel input{width:18px;height:18px;margin:0;accent-color:var(--brand);cursor:pointer}
+.tbl .c-acts{white-space:nowrap;text-align:right;width:1%}
+.ibtn{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:1px solid var(--line);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--ink);vertical-align:middle}
+.ibtn+.ibtn{margin-left:6px}
+.ibtn:hover{border-color:var(--brand);color:var(--brand)}
+.ibtn.del:hover{border-color:var(--bad);color:var(--bad)}
+.ibtn svg{width:18px;height:18px}
+.ibtn:disabled{opacity:.4;cursor:wait}
+#bLixeira[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+@media (max-width:760px){
+  .tbl td.c-sel{grid-row:1;grid-column:1}
+  .tbl tr{grid-template-columns:auto 1fr auto}
+  .tbl td.c-acts{grid-column:3;grid-row:1}
+  .tbl td.c-serv,.tbl td.c-local,.tbl td.c-cli,.tbl td.c-dt{grid-column:1 / -1}
+}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}

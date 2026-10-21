@@ -17,7 +17,10 @@
     SENHA_CURTA: 'A senha deve ter pelo menos 8 caracteres.',
     SENHA_ATUAL_INCORRETA: 'A senha atual não confere.',
     EMAIL_EM_USO: 'Já existe um usuário com este e-mail.',
-    DADOS_INVALIDOS: 'Confira os dados informados.'
+    DADOS_INVALIDOS: 'Confira os dados informados.',
+    DOCUMENTO_NA_LIXEIRA: 'Este documento está na lixeira.',
+    EXCLUSAO_BLOQUEADA: 'Este documento não pode ser apagado na situação atual.',
+    CONFIRMACAO_INVALIDA: 'O número digitado não confere com o documento.'
   };
 
   function ls(fn){ try { return fn(); } catch(e){ return null; } }

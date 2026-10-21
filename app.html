@@ -29,12 +29,19 @@
       <div class="wrap">
         <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:14px">
           <h2 style="margin:0;flex:1">Documentos</h2>
+          <button class="btn" id="bLixeira" hidden>Lixeira</button>
           <button class="btn pri big" id="bNovo" hidden>+ Nova APR / PT</button>
         </div>
         <div class="toolbar">
           <input type="text" class="grow" id="busca" placeholder="Buscar por número, serviço, local ou empresa" aria-label="Buscar documentos">
           <div class="filters" id="filtros" role="group" aria-label="Filtrar por situação"></div>
         </div>
+        <div class="selbar" id="selbar" hidden>
+          <span id="selInfo"></span>
+          <button class="btn pri" id="bZip">Baixar selecionados (ZIP)</button>
+          <button class="btn ghost" id="bLimparSel">Limpar seleção</button>
+        </div>
+        <div class="msg info" id="lixInfo" hidden style="margin-bottom:12px">Documentos na lixeira são apagados de vez 30 dias depois de enviados. Até lá, podem ser restaurados.</div>
         <div id="lista"><div class="empty">Carregando documentos…</div></div>
       </div>
     </main>
@@ -84,6 +91,20 @@
   </div>
 </div>
 
+<!-- Enviar para a lixeira -->
+<div class="modal" id="delDlg" hidden>
+  <form class="card" id="fDel" role="alertdialog" aria-modal="true" aria-labelledby="delT">
+    <h2 id="delT">Enviar para a lixeira?</h2>
+    <p id="delTxt" style="margin:0"></p>
+    <label class="fld" id="delConfF" hidden><span id="delConfL">Digite o número do documento para confirmar</span><input type="text" id="delConf" autocomplete="off"></label>
+    <div class="msg bad" id="delErro" hidden></div>
+    <div class="acts">
+      <button class="btn" type="button" id="delCancelar">Cancelar</button>
+      <button class="btn warn" type="submit" id="delOk">Enviar para a lixeira</button>
+    </div>
+  </form>
+</div>
+
 <!-- Novo documento (administrador escolhe o cliente) -->
 <div class="modal" id="novoDlg" hidden>
   <form class="card" id="fNovo" role="dialog" aria-modal="true" aria-labelledby="novoT">
@@ -97,10 +118,14 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="assets/js/config.js"></script>
 <script src="assets/js/api.js"></script>
+<script src="assets/js/assinatura.js"></script>
 <script src="assets/js/editor.js"></script>
+<script src="assets/js/pdf.js"></script>
 <script src="assets/js/app.js"></script>
 </body>
 </html>

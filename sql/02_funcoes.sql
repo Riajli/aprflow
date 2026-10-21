@@ -59,6 +59,9 @@ begin
   if not found or (u.perfil <> 'admin' and d.cliente_id is distinct from u.cliente_id) then
     raise exception 'DOCUMENTO_NAO_ENCONTRADO' using hint = 'Documento não encontrado ou sem acesso.';
   end if;
+  if d.excluido_em is not null then
+    raise exception 'DOCUMENTO_NA_LIXEIRA' using hint = 'Este documento está na lixeira. Restaure-o para continuar.';
+  end if;
   return d;
 end $$;
 
@@ -74,6 +77,8 @@ returns jsonb language sql stable security definer set search_path = public as $
   select jsonb_build_object(
     'id', d.id, 'numero', d.numero, 'status', d.status, 'codigo', d.codigo,
     'cliente_id', d.cliente_id, 'cliente_nome', (select nome from clientes where id = d.cliente_id),
+    'cliente_cnpj', (select cnpj from clientes where id = d.cliente_id),
+    'cliente_endereco', (select endereco from clientes where id = d.cliente_id),
     'dados', d.dados, 'eventos', d.eventos,
     'criado_em', d.criado_em, 'atualizado_em', d.atualizado_em,
     'criado_por_nome', (select nome from usuarios where id = d.criado_por),
@@ -144,8 +149,26 @@ end $$;
 
 -- ---------- Acesso ----------
 
+create or replace function public._esvaziar_lixeira()
+returns int language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  with apagados as (
+    delete from documentos where excluido_em < now() - interval '30 days'
+    returning id, cliente_id, numero)
+  insert into atividades(cliente_id, acao, detalhe)
+  select cliente_id, 'documento_apagado_definitivo', jsonb_build_object('numero', numero, 'documento_id', id) from apagados;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+
+-- Chamado todo dia pela rotina do GitHub: mantém o projeto ativo e esvazia a lixeira vencida
 create or replace function public.ping()
-returns timestamptz language sql security definer as $$ select now(); $$;
+returns timestamptz language plpgsql security definer set search_path = public as $$
+begin
+  perform public._esvaziar_lixeira();
+  return now();
+end $$;
 
 -- Só funciona enquanto não existir nenhum usuário
 create or replace function public.criar_admin_inicial(p_email text, p_senha text, p_nome text)
@@ -217,24 +240,28 @@ returns jsonb language plpgsql security definer set search_path = public as $$
 declare u public.usuarios := public._sessao(p_token);
 begin
   return coalesce((select jsonb_agg(jsonb_build_object('id', c.id, 'nome', c.nome, 'cnpj', c.cnpj, 'ativo', c.ativo,
+            'endereco', c.endereco,
             'usuarios', (select count(*) from usuarios where cliente_id = c.id),
-            'documentos', (select count(*) from documentos where cliente_id = c.id)) order by c.nome)
+            'documentos', (select count(*) from documentos where cliente_id = c.id and excluido_em is null)) order by c.nome)
     from clientes c where u.perfil = 'admin' or c.id = u.cliente_id), '[]'::jsonb);
 end $$;
 
-create or replace function public.salvar_cliente(p_token text, p_id uuid, p_nome text, p_cnpj text, p_ativo boolean)
+drop function if exists public.salvar_cliente(text, uuid, text, text, boolean);
+create or replace function public.salvar_cliente(p_token text, p_id uuid, p_nome text, p_cnpj text, p_ativo boolean,
+                                                p_endereco jsonb default '{}'::jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare u public.usuarios := public._sessao(p_token); c public.clientes;
+        e jsonb := case when jsonb_typeof(p_endereco) = 'object' then p_endereco else '{}'::jsonb end;
 begin
   perform public._exigir(u, 'clientes');
   if coalesce(trim(p_nome),'') = '' then
     raise exception 'DADOS_INVALIDOS' using hint = 'Informe o nome do cliente.';
   end if;
   if p_id is null then
-    insert into clientes(nome, cnpj, ativo) values (trim(p_nome), nullif(trim(p_cnpj),''), coalesce(p_ativo,true)) returning * into c;
+    insert into clientes(nome, cnpj, ativo, endereco) values (trim(p_nome), nullif(trim(p_cnpj),''), coalesce(p_ativo,true), e) returning * into c;
     perform public._log(u, 'cliente_criado', c.id, null, jsonb_build_object('nome', c.nome));
   else
-    update clientes set nome = trim(p_nome), cnpj = nullif(trim(p_cnpj),''), ativo = coalesce(p_ativo,true)
+    update clientes set nome = trim(p_nome), cnpj = nullif(trim(p_cnpj),''), ativo = coalesce(p_ativo,true), endereco = e
      where id = p_id returning * into c;
     perform public._log(u, 'cliente_alterado', c.id, null, jsonb_build_object('nome', c.nome));
   end if;
@@ -326,18 +353,28 @@ begin
   return jsonb_build_object('id', d.id, 'numero', d.numero);
 end $$;
 
-create or replace function public.listar_documentos(p_token text, p_status text default null, p_busca text default null)
+drop function if exists public.listar_documentos(text, text, text);
+create or replace function public.listar_documentos(p_token text, p_status text default null, p_busca text default null,
+                                                   p_lixeira boolean default false)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare u public.usuarios := public._sessao(p_token); b text := '%' || coalesce(trim(p_busca),'') || '%';
 begin
-  return coalesce((select jsonb_agg(x order by x->>'criado_em' desc) from (
+  if coalesce(p_lixeira,false) and u.perfil not in ('admin','gestor') then
+    raise exception 'SEM_PERMISSAO' using hint = 'Seu perfil não acessa a lixeira.';
+  end if;
+  return coalesce((select jsonb_agg(x order by x->>'ordem' desc) from (
     select jsonb_build_object(
       'id', d.id, 'numero', d.numero, 'status', d.status, 'cliente_nome', c.nome,
       'empresa', d.dados#>>'{id,empresa}', 'local', d.dados#>>'{id,local}', 'servico', d.dados#>>'{id,servico}',
       'criado_em', d.criado_em, 'atualizado_em', d.atualizado_em, 'criado_por_nome', us.nome,
-      'liberada_em', d.liberada_em, 'validade_fim', d.validade_fim, 'encerrada_em', d.encerrada_em) x
-    from documentos d join clientes c on c.id = d.cliente_id left join usuarios us on us.id = d.criado_por
+      'liberada_em', d.liberada_em, 'validade_fim', d.validade_fim, 'encerrada_em', d.encerrada_em,
+      'excluido_em', d.excluido_em, 'excluido_por_nome', ex.nome,
+      'apagar_em', d.excluido_em + interval '30 days',
+      'ordem', case when coalesce(p_lixeira,false) then d.excluido_em else d.criado_em end) x
+    from documentos d join clientes c on c.id = d.cliente_id
+         left join usuarios us on us.id = d.criado_por left join usuarios ex on ex.id = d.excluido_por
    where (u.perfil = 'admin' or d.cliente_id = u.cliente_id)
+     and (case when coalesce(p_lixeira,false) then d.excluido_em is not null else d.excluido_em is null end)
      and (p_status is null or p_status = '' or d.status = p_status)
      and (coalesce(trim(p_busca),'') = '' or d.numero ilike b or c.nome ilike b
           or d.dados#>>'{id,servico}' ilike b or d.dados#>>'{id,local}' ilike b)
@@ -352,6 +389,9 @@ begin
   select * into d from documentos where id = p_id;
   if not found or (u.perfil <> 'admin' and d.cliente_id is distinct from u.cliente_id) then
     raise exception 'DOCUMENTO_NAO_ENCONTRADO' using hint = 'Documento não encontrado ou sem acesso.';
+  end if;
+  if d.excluido_em is not null then
+    raise exception 'DOCUMENTO_NA_LIXEIRA' using hint = 'Este documento está na lixeira. Restaure-o para abrir.';
   end if;
   return public._doc_json(d);
 end $$;
@@ -496,13 +536,59 @@ begin
   return jsonb_build_object('id', d.id, 'numero', d.numero);
 end $$;
 
+-- ---------- Lixeira ----------
+
+-- Rascunho e cancelado: gestor ou administrador. Encerrado: só o administrador, digitando o número.
+-- Liberado ou suspenso: precisa ser encerrado antes.
+create or replace function public.excluir_documento(p_token text, p_id uuid, p_confirmacao text default null)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare u public.usuarios := public._sessao(p_token); d public.documentos := public._doc(u, p_id);
+begin
+  if d.status in ('liberada','suspensa') then
+    raise exception 'EXCLUSAO_BLOQUEADA' using hint = 'PT liberada ou suspensa não pode ser apagada. Encerre a PT antes.';
+  elsif d.status = 'encerrada' then
+    if u.perfil <> 'admin' then
+      raise exception 'SEM_PERMISSAO' using hint = 'Só o administrador da plataforma pode apagar uma PT encerrada.';
+    end if;
+    if upper(trim(coalesce(p_confirmacao,''))) <> upper(d.numero) then
+      raise exception 'CONFIRMACAO_INVALIDA' using hint = 'Digite o número do documento exatamente como aparece para confirmar.';
+    end if;
+  elsif u.perfil not in ('admin','gestor') then
+    raise exception 'SEM_PERMISSAO' using hint = 'Só o gestor ou o administrador pode apagar documentos.';
+  end if;
+  update documentos set excluido_em = now(), excluido_por = u.id where id = p_id;
+  perform public._evento(p_id, format('Documento enviado para a lixeira por %s', u.nome));
+  perform public._log(u, 'documento_para_lixeira', d.cliente_id, d.id, jsonb_build_object('numero', d.numero, 'status', d.status));
+  return jsonb_build_object('numero', d.numero, 'apagar_em', now() + interval '30 days');
+end $$;
+
+create or replace function public.restaurar_documento(p_token text, p_id uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare u public.usuarios := public._sessao(p_token); d public.documentos;
+begin
+  select * into d from documentos where id = p_id for update;
+  if not found or (u.perfil <> 'admin' and d.cliente_id is distinct from u.cliente_id) then
+    raise exception 'DOCUMENTO_NAO_ENCONTRADO' using hint = 'Documento não encontrado ou sem acesso.';
+  end if;
+  if d.excluido_em is null then
+    raise exception 'TRANSICAO_INVALIDA' using hint = 'Este documento não está na lixeira.';
+  end if;
+  if u.perfil not in ('admin','gestor') or (d.status = 'encerrada' and u.perfil <> 'admin') then
+    raise exception 'SEM_PERMISSAO' using hint = 'Seu perfil não pode restaurar este documento.';
+  end if;
+  update documentos set excluido_em = null, excluido_por = null where id = p_id;
+  perform public._evento(p_id, format('Documento restaurado da lixeira por %s', u.nome));
+  perform public._log(u, 'documento_restaurado', d.cliente_id, d.id, jsonb_build_object('numero', d.numero));
+  return jsonb_build_object('numero', d.numero);
+end $$;
+
 -- ---------- Verificação pública (QR code do documento) ----------
 
 create or replace function public.verificar_documento(p_codigo text)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare d public.documentos;
 begin
-  select * into d from documentos where codigo = lower(trim(p_codigo));
+  select * into d from documentos where codigo = lower(trim(p_codigo)) and excluido_em is null;
   if not found then return null; end if;
   return jsonb_build_object(
     'numero', d.numero,
@@ -529,11 +615,13 @@ grant execute on function public.logout(text)                             to ano
 grant execute on function public.eu(text)                                 to anon;
 grant execute on function public.alterar_minha_senha(text, text, text)    to anon;
 grant execute on function public.listar_clientes(text)                    to anon;
-grant execute on function public.salvar_cliente(text, uuid, text, text, boolean) to anon;
+grant execute on function public.salvar_cliente(text, uuid, text, text, boolean, jsonb) to anon;
 grant execute on function public.listar_usuarios(text)                    to anon;
 grant execute on function public.salvar_usuario(text, uuid, text, text, text, uuid, boolean, text) to anon;
 grant execute on function public.criar_documento(text, uuid)              to anon;
-grant execute on function public.listar_documentos(text, text, text)      to anon;
+grant execute on function public.listar_documentos(text, text, text, boolean) to anon;
+grant execute on function public.excluir_documento(text, uuid, text)     to anon;
+grant execute on function public.restaurar_documento(text, uuid)          to anon;
 grant execute on function public.obter_documento(text, uuid)              to anon;
 grant execute on function public.salvar_documento(text, uuid, jsonb)      to anon;
 grant execute on function public.liberar_documento(text, uuid)            to anon;

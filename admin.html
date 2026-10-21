@@ -63,6 +63,19 @@
           <input type="hidden" id="cId">
           <label class="fld"><span>Razão social ou nome <b class="rq">*</b></span><input type="text" id="cNome" autocomplete="off"></label>
           <label class="fld"><span>CNPJ</span><input type="text" id="cCnpj" maxlength="18" placeholder="00.000.000/0000-00" autocomplete="off"><em class="err" id="cCnpjErr" hidden>CNPJ inválido. Confira os números.</em></label>
+          <div class="addr">
+            <div class="addr-h">Endereço</div>
+            <div class="ag2">
+              <label class="fld a-cep"><span>CEP</span><input type="text" id="cCep" inputmode="numeric" maxlength="9" placeholder="00000-000" autocomplete="off"></label>
+              <div class="cepst a-st" id="cCepSt">Digite o CEP para preencher o endereço, ou preencha à mão.</div>
+              <label class="fld a-log"><span>Logradouro</span><input type="text" id="cLog" autocomplete="off"></label>
+              <label class="fld a-num"><span>Número</span><input type="text" id="cNum" autocomplete="off"></label>
+              <label class="fld a-comp"><span>Complemento</span><input type="text" id="cComp" autocomplete="off"></label>
+              <label class="fld a-bai"><span>Bairro</span><input type="text" id="cBairro" autocomplete="off"></label>
+              <label class="fld a-cid"><span>Cidade</span><input type="text" id="cCidade" autocomplete="off"></label>
+              <label class="fld a-uf"><span>UF</span><input type="text" id="cUf" maxlength="2" autocomplete="off"></label>
+            </div>
+          </div>
           <label class="ck" style="padding:0"><input type="checkbox" id="cAtivo" checked><span>Cliente ativo (usuários podem entrar)</span></label>
           <div class="msg bad" id="cErro" hidden></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" type="submit">Salvar</button><button class="btn ghost" type="button" id="cLimpar">Limpar</button></div>
