@@ -10,6 +10,37 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500&display=swap">
 <link rel="stylesheet" href="assets/css/app.css">
+<style>
+  .vf{display:grid;gap:12px}
+  .vcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;gap:10px}
+  .vnum{font:500 13px/1 var(--f-mono);color:var(--muted)}
+  .vh{font:700 12px/1 var(--f-display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0}
+  .vmsg{margin:0;font-size:15px}
+  .vkv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14.5px;margin:0}
+  .vkv dt{color:var(--muted)} .vkv dd{margin:0;min-width:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+  .vkv small{color:var(--muted);font-size:13px}
+  .vtime{display:grid;gap:6px}
+  .vtrack{height:8px;border-radius:4px;background:var(--surface-2);border:1px solid var(--line);overflow:hidden}
+  .vtrack i{display:block;height:100%;background:var(--ok)}
+  .vtime small{color:var(--muted);font-size:13.5px}
+  .valert{border-radius:10px;padding:10px 12px;font-size:14.5px}
+  .valert b{display:block;font:700 15px/1.2 var(--f-display);margin-bottom:2px}
+  .valert.warn{background:var(--warn-soft);color:#5a3a00} .valert.bad{background:var(--bad-soft);color:#6b1d16}
+  .vchips{display:flex;flex-wrap:wrap;gap:6px}
+  .vchip{display:inline-flex;align-items:center;padding:5px 9px;border-radius:6px;background:var(--brand-soft);font:600 13.5px/1.15 var(--f-display)}
+  .vchecks{list-style:none;margin:0;padding:0;display:grid;gap:5px;font-size:14.5px}
+  .vchecks li{display:flex;gap:8px;align-items:flex-start}
+  .vchecks li::before{content:"✓";color:var(--ok);font-weight:700;flex:0 0 auto}
+  .vchecks li.pres::before{content:"!";color:var(--bad)}
+  .vchecks li.pend::before{content:"•";color:var(--muted)}
+  .vtel{display:grid;gap:6px}
+  .vtel div{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)}
+  .vtel b{font:700 20px/1 var(--f-display);font-variant-numeric:tabular-nums;user-select:all}
+  .vbtn{display:block;text-align:center;padding:11px;border-radius:8px;background:var(--brand);color:var(--brand-ink);font:600 15px/1 var(--f-display);letter-spacing:.03em;text-decoration:none}
+  .vhosp + .vhosp{border-top:1px solid var(--line);padding-top:10px}
+  .vhosp{display:grid;gap:8px}
+  .vempty{color:var(--muted);font-size:14px;margin:0}
+</style>
 </head>
 <body>
 <div class="page">
@@ -17,11 +48,8 @@
     <div class="brand"><b>APRFlow</b><span>Verificação de Permissão de Trabalho</span></div>
   </div></header>
   <main class="g">
-    <div class="narrow">
-      <div class="card stack" id="res"><p class="hint" style="margin:0">Consultando…</p></div>
-    </div>
+    <div class="narrow vf" id="res"><div class="vcard"><p class="vempty">Consultando…</p></div></div>
   </main>
-  <div class="foot-note">Consulta pública da situação do documento. Os dados pessoais da equipe não são exibidos.</div>
 </div>
 <script src="assets/js/config.js"></script>
 <script src="assets/js/api.js"></script>
@@ -30,29 +58,105 @@
   const res = document.getElementById('res'), esc = API.esc;
   const pad = n => String(n).padStart(2,'0');
   const fmtDH = s => { if(!s) return '—'; const d=new Date(s); return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const fmtH = s => { const d=new Date(s); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const tx = v => (v==null?'':String(v)).trim();
+  const fmtEnd = a => { if(!a) return ''; const l1=[tx(a.log),tx(a.num)].filter(Boolean).join(', '); const cu=[tx(a.cidade),tx(a.uf)].filter(Boolean).join(' - '); return [l1,tx(a.bairro),cu].filter(Boolean).join(', '); };
+
   const LBL = { rascunho:'Em preparação', liberada:'Liberada', suspensa:'Suspensa', encerrada:'Encerrada', cancelada:'Cancelada', vencida:'Vencida' };
   const MSG = { rascunho:'A PT ainda não foi liberada. O trabalho não pode começar.', liberada:'Trabalho autorizado dentro da validade abaixo.',
     suspensa:'Trabalho interrompido. Aguarde nova conferência e retomada.', encerrada:'Trabalho encerrado. Esta PT não vale mais.',
     cancelada:'Documento cancelado. Não vale como autorização.', vencida:'A validade terminou. O trabalho não pode continuar sem nova PT.' };
+  const ATIV = { a01:'01 Içamento de cargas', a02:'02 Construção civil', a03:'03 Inflamáveis ou explosivos', a04:'04 Trabalho em altura',
+    a05:'05 Circuito energizado', a06:'06 Próximo a área energizada', a07:'07 Trabalho a quente', a08:'08 Espaço confinado',
+    a09:'09 Demolição e escavação', a10:'10 Intempéries climáticas' };
+  const COND = { a01:'Nº 01 Operações de içamento', a03:'Nº 03 Atmosfera inflamável ou explosiva', a05:'Nº 05 Circuitos ou superfícies energizadas',
+    a08:'Nº 08 Trabalho em espaço confinado', a10:'Nº 10 Chuva, ventos fortes ou raios',
+    gi_trein:'Trabalhador sem treinamento ou ASO válido', gi_epi:'Falta ou dano de EPI, EPC ou ferramenta', gi_mud:'Mudança nas condições sem revisão da APR' };
+  const mapsDir = (o,d) => `https://www.google.com/maps/dir/?api=1${o?`&origin=${encodeURIComponent(o)}`:''}&destination=${encodeURIComponent(d)}&travelmode=driving`;
+
   const c = new URLSearchParams(location.search).get('c');
   if(!c){ res.innerHTML = '<div class="msg bad">Código de verificação ausente. Leia novamente o QR code do documento.</div>'; return; }
-  try {
-    const d = await API.rpc('verificar_documento', { p_codigo: c });
-    if(!d){ res.innerHTML = '<div class="msg bad">Documento não encontrado. Confira se o QR code está legível e completo.</div>'; return; }
-    res.innerHTML = `
-      <div><div class="hint" style="margin:0;font:500 13px/1 var(--f-mono)">${esc(d.numero)}</div>
-      <div class="verif-st ${d.status}">${LBL[d.status]||esc(d.status)}</div>
-      <p style="margin:0">${MSG[d.status]||''}</p></div>
-      <dl class="kv">
-        <dt>Empresa</dt><dd>${esc(d.empresa||'—')}</dd>
-        <dt>Local</dt><dd>${esc(d.local||'—')}</dd>
-        <dt>Serviço</dt><dd>${esc(d.servico||'—')}</dd>
-        <dt>Validade</dt><dd>${d.validade_ini?`${fmtDH(d.validade_ini)} até ${fmtDH(d.validade_fim)}`:'—'}</dd>
-        ${d.liberada_em?`<dt>Liberada em</dt><dd>${fmtDH(d.liberada_em)}</dd>`:''}
-        ${d.encerrada_em?`<dt>Encerrada em</dt><dd>${fmtDH(d.encerrada_em)}</dd>`:''}
-      </dl>
-      <p class="hint" style="margin:0">Consultado em ${fmtDH(d.consultado_em)}.</p>`;
-  } catch(e){ res.innerHTML = `<div class="msg bad">${esc(e.message)}</div>`; }
+  let d;
+  try { d = await API.rpc('verificar_documento', { p_codigo: c }); }
+  catch(e){ res.innerHTML = `<div class="msg bad">${esc(e.message)}</div>`; return; }
+  if(!d){ res.innerHTML = '<div class="msg bad">Documento não encontrado. Confira se o QR code está legível e completo.</div>'; return; }
+
+  const st = d.status;
+  /* Tempo de validade, suspensão ou vencimento */
+  let topo = '';
+  if(st === 'liberada' && d.validade_ini && d.validade_fim){
+    const ini = new Date(d.validade_ini), fim = new Date(d.validade_fim), agora = new Date();
+    const pct = Math.min(100, Math.max(0, (agora - ini) / (fim - ini) * 100));
+    const rest = Math.max(0, fim - agora), h = Math.floor(rest / 36e5), m = Math.floor(rest % 36e5 / 6e4);
+    topo = agora < ini
+      ? `<div class="vtime"><small>A validade começa às <b>${fmtH(ini)}</b> e termina às <b>${fmtH(fim)}</b>.</small></div>`
+      : `<div class="vtime"><div class="vtrack"><i style="width:${(100 - pct).toFixed(0)}%"></i></div><small>Restam <b>${h} h ${pad(m)} min</b> de validade (termina às ${fmtH(fim)})</small></div>`;
+  } else if(st === 'vencida' && d.validade_fim){
+    topo = `<div class="valert bad"><b>Venceu às ${fmtH(d.validade_fim)} de ${fmtDH(d.validade_fim).slice(0,10)}</b>Para continuar, é preciso emitir um novo documento.</div>`;
+  } else if(st === 'suspensa'){
+    const s = d.suspensao;
+    const txt = s ? String(s.txt).replace(/^PT suspensa por /, '') : '';
+    const [quem, ...mot] = txt.split(': ');
+    topo = `<div class="valert warn"><b>Motivo da suspensão</b>${s ? `${esc(mot.join(': ') || 'não informado')}. Suspensa às ${fmtH(s.em)} por ${esc(quem)}.` : 'Motivo não registrado.'}</div>`;
+  }
+
+  /* Cartão principal */
+  let h = `<div class="vcard">
+    <div><div class="vnum">${esc(d.numero)}</div><div class="verif-st ${st}">${LBL[st] || esc(st)}</div><p class="vmsg">${MSG[st] || ''}</p></div>
+    ${topo}
+    <dl class="vkv">
+      <dt>Empresa</dt><dd>${esc(d.empresa || '—')}</dd>
+      <dt>Local</dt><dd>${esc(d.local || '—')}</dd>
+      <dt>Serviço</dt><dd>${esc(d.servico || '—')}</dd>
+      <dt>Validade</dt><dd>${d.validade_ini ? `${fmtDH(d.validade_ini)} até ${fmtDH(d.validade_fim)}` : '—'}</dd>
+      ${d.liberada_em ? `<dt>Liberada em</dt><dd>${fmtDH(d.liberada_em)}</dd>` : ''}
+      ${d.encerrada_em ? `<dt>Encerrada em</dt><dd>${fmtDH(d.encerrada_em)}</dd>` : ''}
+    </dl></div>`;
+
+  /* Liberação */
+  const L = d.liberador || {}, E = d.elaborador || {};
+  if(tx(L.nome) || tx(E.nome) || d.executantes){
+    h += `<div class="vcard"><p class="vh">Liberação</p><dl class="vkv">
+      ${tx(L.nome) ? `<dt>Liberado por</dt><dd>${esc(L.nome)}${tx(L.funcao) ? `<br><small>${esc(L.funcao)}</small>` : ''}</dd>` : ''}
+      ${tx(E.nome) ? `<dt>Elaborado por</dt><dd>${esc(E.nome)}${tx(E.reg_num) ? `<br><small>${esc(E.reg_tipo || '')} ${esc(E.reg_num)}</small>` : tx(E.funcao) ? `<br><small>${esc(E.funcao)}</small>` : ''}</dd>` : ''}
+      <dt>Executantes</dt><dd>${d.executantes === 1 ? '1 trabalhador autorizado' : `${d.executantes || 0} trabalhadores autorizados`}</dd>
+    </dl></div>`;
+  }
+
+  /* Atividades críticas e condições impeditivas */
+  const ativ = (d.ativ || []).filter(k => ATIV[k]);
+  const imped = d.imped || {};
+  const ORD = ['a01','a03','a05','a08','a10','gi_trein','gi_epi','gi_mud'];
+  const rank = k => { const i = ORD.indexOf(k); return i >= 0 ? i : 100 + (+(k.split('_')[1]) || 0); };
+  const conds = Object.keys(imped).sort((x, y) => rank(x) - rank(y)).map(k => {
+    const m = k.match(/^ix_(\d+)$/);
+    const titulo = m ? (d.imped_extra || [])[+m[1]] : COND[k];
+    return titulo ? { titulo, v: imped[k] } : null;
+  }).filter(Boolean);
+  if(ativ.length || conds.length){
+    h += `<div class="vcard"><p class="vh">Atividades críticas</p>
+      ${ativ.length ? `<div class="vchips">${ativ.map(k => `<span class="vchip">${ATIV[k]}</span>`).join('')}</div>` : '<p class="vempty">Nenhuma atividade crítica marcada.</p>'}
+      ${conds.length ? `<p class="vh" style="margin-top:4px">Condições impeditivas verificadas</p>
+        <ul class="vchecks">${conds.map(x => `<li class="${x.v === 'presente' ? 'pres' : x.v === 'ausente' ? '' : 'pend'}">${esc(x.titulo)}: ${x.v === 'presente' ? '<b style="color:var(--bad)">PRESENTE</b>' : x.v === 'ausente' ? 'ausente' : 'não verificada'}</li>`).join('')}</ul>` : ''}
+    </div>`;
+  }
+
+  /* Emergência */
+  const tels = d.telefones || [], hosp = d.hospitais || [];
+  if(tels.length || hosp.length){
+    const origem = fmtEnd(d.end_local);
+    h += `<div class="vcard"><p class="vh">Em caso de emergência</p>
+      ${tels.length ? `<div class="vtel">${tels.map(t => `<div><span>${esc(t.s || 'Telefone')}</span><b>${esc(t.t)}</b></div>`).join('')}</div>` : ''}
+      ${hosp.map(x => { const dest = fmtEnd(x.addr); return `<div class="vhosp"><dl class="vkv">
+          <dt>Hospital</dt><dd>${esc(x.nome)}${tx(x.km) || tx(x.min) ? `<br><small>${[tx(x.km) ? esc(x.km)+' km' : '', tx(x.min) ? esc(x.min)+' min' : ''].filter(Boolean).join(' · ')}</small>` : ''}</dd>
+          ${tx(x.tel) ? `<dt>Telefone</dt><dd><b style="user-select:all">${esc(x.tel)}</b></dd>` : ''}
+          ${dest ? `<dt>Endereço</dt><dd>${esc(dest)}</dd>` : ''}
+        </dl>${dest ? `<a class="vbtn" href="${mapsDir(origem, dest)}" target="_blank" rel="noopener">Abrir rota até o hospital ↗</a>` : ''}</div>`; }).join('')}
+    </div>`;
+  }
+
+  h += `<div class="foot-note" style="padding:4px 0 0">Consultado em ${fmtDH(d.consultado_em)} · Dados pessoais da equipe não são exibidos</div>`;
+  res.innerHTML = h;
 })();
 </script>
 </body>

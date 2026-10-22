@@ -586,16 +586,35 @@ end $$;
 
 create or replace function public.verificar_documento(p_codigo text)
 returns jsonb language plpgsql security definer set search_path = public as $$
-declare d public.documentos;
+declare d public.documentos; dd jsonb;
 begin
   select * into d from documentos where codigo = lower(trim(p_codigo)) and excluido_em is null;
   if not found then return null; end if;
+  dd := d.dados;
+  -- Só informações operacionais: nenhum nome ou CPF de executante
   return jsonb_build_object(
     'numero', d.numero,
     'status', case when d.status = 'liberada' and d.validade_fim < now() then 'vencida' else d.status end,
-    'empresa', d.dados#>>'{id,empresa}', 'local', d.dados#>>'{id,local}', 'servico', d.dados#>>'{id,servico}',
+    'empresa', dd#>>'{id,empresa}', 'local', dd#>>'{id,local}', 'servico', dd#>>'{id,servico}',
     'validade_ini', d.validade_ini, 'validade_fim', d.validade_fim,
-    'liberada_em', d.liberada_em, 'encerrada_em', d.encerrada_em, 'consultado_em', now());
+    'liberada_em', d.liberada_em, 'encerrada_em', d.encerrada_em, 'consultado_em', now(),
+    'liberador', jsonb_build_object('nome', dd#>>'{lib,liberador,nome}', 'funcao', dd#>>'{lib,liberador,funcao}'),
+    'elaborador', jsonb_build_object('nome', dd#>>'{lib,elaborador,nome}', 'funcao', dd#>>'{lib,elaborador,funcao}',
+                                     'reg_tipo', dd#>>'{lib,elaborador,regTipo}', 'reg_num', dd#>>'{lib,elaborador,regNum}'),
+    'executantes', case when jsonb_typeof(dd->'equipe') = 'array' then jsonb_array_length(dd->'equipe') else 0 end,
+    'ativ', coalesce((select jsonb_agg(k order by k) from jsonb_each(coalesce(dd->'ativ','{}'::jsonb)) e(k, v) where v = 'true'::jsonb), '[]'::jsonb),
+    'riscos_ativos', coalesce((select jsonb_agg(k) from jsonb_each(coalesce(dd->'riscos','{}'::jsonb)) e(k, v) where coalesce((v->>'on')::boolean,false)), '[]'::jsonb),
+    'imped', coalesce(dd#>'{lib,imped}', '{}'::jsonb),
+    'imped_extra', coalesce((select jsonb_agg(x->>'txt') from jsonb_array_elements(case when jsonb_typeof(dd->'impExtra') = 'array' then dd->'impExtra' else '[]'::jsonb end) x), '[]'::jsonb),
+    'telefones', coalesce((select jsonb_agg(jsonb_build_object('s', t->>'s', 't', t->>'t'))
+                   from jsonb_array_elements(case when jsonb_typeof(dd#>'{emerg,tel}') = 'array' then dd#>'{emerg,tel}' else '[]'::jsonb end) t
+                  where coalesce(trim(t->>'t'),'') <> ''), '[]'::jsonb),
+    'hospitais', coalesce((select jsonb_agg(jsonb_build_object('nome', h->>'nome', 'tel', h->>'tel', 'km', h->>'km', 'min', h->>'min', 'addr', h->'addr'))
+                   from jsonb_array_elements(case when jsonb_typeof(dd#>'{emerg,hospitais}') = 'array' then dd#>'{emerg,hospitais}' else '[]'::jsonb end) h
+                  where coalesce(trim(h->>'nome'),'') <> ''), '[]'::jsonb),
+    'end_local', dd#>'{id,endLocal}',
+    'suspensao', case when d.status = 'suspensa' then
+                   (select e from jsonb_array_elements(d.eventos) e where e->>'txt' like 'PT suspensa%' order by e->>'em' desc limit 1) end);
 end $$;
 
 -- ---------- Permissões de execução ----------
