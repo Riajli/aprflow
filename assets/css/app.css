@@ -395,3 +395,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
   .tbl td.c-serv,.tbl td.c-local,.tbl td.c-cli,.tbl td.c-dt{grid-column:1 / -1}
 }
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* Condições impeditivas em forma de pergunta */
+.imp .q{color:var(--ink);font-weight:600;font-size:14.5px}
+.impv .t{display:grid;gap:3px}
+.impv .t .ctit{font:600 11px/1.2 var(--f-display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.impv .t small{color:var(--muted);font-size:13px;line-height:1.35}
+.impv .t small.sn{color:var(--bad)}

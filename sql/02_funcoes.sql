@@ -132,7 +132,7 @@ begin
 
   if jsonb_typeof(dd#>'{lib,imped}') = 'object' then
     for r in select key, value from jsonb_each_text(dd#>'{lib,imped}') loop
-      if r.value = 'presente' then e := array_append(e, 'Há condição impeditiva presente'::text); exit; end if;
+      if r.value = 'presente' then e := array_append(e, 'Há verificação de condição impeditiva respondida com Não'::text); exit; end if;
     end loop;
   end if;
 

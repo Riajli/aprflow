@@ -69,9 +69,11 @@
   const ATIV = { a01:'01 Içamento de cargas', a02:'02 Construção civil', a03:'03 Inflamáveis ou explosivos', a04:'04 Trabalho em altura',
     a05:'05 Circuito energizado', a06:'06 Próximo a área energizada', a07:'07 Trabalho a quente', a08:'08 Espaço confinado',
     a09:'09 Demolição e escavação', a10:'10 Intempéries climáticas' };
-  const COND = { a01:'Nº 01 Operações de içamento', a03:'Nº 03 Atmosfera inflamável ou explosiva', a05:'Nº 05 Circuitos ou superfícies energizadas',
-    a08:'Nº 08 Trabalho em espaço confinado', a10:'Nº 10 Chuva, ventos fortes ou raios',
-    gi_trein:'Trabalhador sem treinamento ou ASO válido', gi_epi:'Falta ou dano de EPI, EPC ou ferramenta', gi_mud:'Mudança nas condições sem revisão da APR' };
+  const COND = { a01:'A Permissão de Içamento está emitida e aprovada?', a03:'A medição de inflamáveis está dentro do limite definido pela empresa?',
+    a05:'A desenergização ou a distância mínima de segurança está garantida?', a08:'A Permissão de Entrada e Trabalho (PET) está emitida e liberada?',
+    a10:'As condições climáticas estão adequadas, sem chuva, ventos fortes ou formação de raios?',
+    gi_trein:'Todos os trabalhadores têm treinamento e ASO válidos para a atividade?', gi_epi:'EPI, EPC e ferramentas estão disponíveis e em bom estado?',
+    gi_mud:'O local e a tarefa estão iguais ao previsto nesta APR?' };
   const mapsDir = (o,d) => `https://www.google.com/maps/dir/?api=1${o?`&origin=${encodeURIComponent(o)}`:''}&destination=${encodeURIComponent(d)}&travelmode=driving`;
 
   const c = new URLSearchParams(location.search).get('c');
@@ -136,8 +138,8 @@
   if(ativ.length || conds.length){
     h += `<div class="vcard"><p class="vh">Atividades críticas</p>
       ${ativ.length ? `<div class="vchips">${ativ.map(k => `<span class="vchip">${ATIV[k]}</span>`).join('')}</div>` : '<p class="vempty">Nenhuma atividade crítica marcada.</p>'}
-      ${conds.length ? `<p class="vh" style="margin-top:4px">Condições impeditivas verificadas</p>
-        <ul class="vchecks">${conds.map(x => `<li class="${x.v === 'presente' ? 'pres' : x.v === 'ausente' ? '' : 'pend'}">${esc(x.titulo)}: ${x.v === 'presente' ? '<b style="color:var(--bad)">PRESENTE</b>' : x.v === 'ausente' ? 'ausente' : 'não verificada'}</li>`).join('')}</ul>` : ''}
+      ${conds.length ? `<p class="vh" style="margin-top:4px">Verificação das condições impeditivas</p>
+        <ul class="vchecks">${conds.map(x => `<li class="${x.v === 'presente' ? 'pres' : x.v === 'ausente' ? '' : 'pend'}">${esc(x.titulo)} ${x.v === 'presente' ? '<b style="color:var(--bad)">NÃO</b>' : x.v === 'ausente' ? '<b style="color:var(--ok)">Sim</b>' : '<span style="color:var(--muted)">não respondida</span>'}</li>`).join('')}</ul>` : ''}
     </div>`;
   }
 
