@@ -223,11 +223,11 @@ a.btn{text-decoration:none;color:inherit}
 .sheet th,.sheet td{border:1px solid var(--paper-line);padding:5px 7px;vertical-align:top;text-align:left}
 .sheet th{background:var(--paper-head);font:700 11.5px/1.2 var(--f-display);letter-spacing:.04em;text-transform:uppercase}
 .sheet .sh{background:var(--paper-head);text-align:center;font:700 12.5px/1.2 var(--f-display);letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--paper-line);padding:6px;margin-top:10px}
-.sheet .tt{display:grid;grid-template-columns:150px 1fr 150px;align-items:center;border:1px solid var(--paper-line);margin-bottom:10px}
-.sheet .tt>div{padding:8px 10px}
+.sheet .tt{display:grid;grid-template-columns:160px 1fr 200px;align-items:stretch;border:1px solid var(--paper-line);margin-bottom:10px}
+.sheet .tt>div{padding:8px 10px;display:flex;align-items:center;justify-content:center}
 .sheet .tt h1{margin:0;text-align:center;font:700 18px/1.15 var(--f-display);letter-spacing:.02em}
-.sheet .tt .r{text-align:right;font:500 11px/1.5 var(--f-mono);border-left:1px solid var(--paper-line)}
-.sheet .tt .l{border-right:1px solid var(--paper-line);font:700 16px/1 var(--f-display);color:#0d5c53}
+.sheet .tt .r{font:500 10.5px/1.45 var(--f-mono);border-left:1px solid var(--paper-line)}
+.sheet .tt .l{border-right:1px solid var(--paper-line);font:700 27px/1 var(--f-display);color:#0d5c53;letter-spacing:.01em;text-align:center}
 .sheet .ag{display:grid;grid-template-columns:repeat(5,1fr);border-left:1px solid var(--paper-line);border-top:1px solid var(--paper-line)}
 .sheet .ag div{border-right:1px solid var(--paper-line);border-bottom:1px solid var(--paper-line);padding:6px;display:flex;gap:6px;align-items:flex-start}
 .sheet .bx{flex:0 0 14px;height:14px;border:1.3px solid var(--paper-ink);display:grid;place-items:center;font:700 11px/1 var(--f-body)}
@@ -347,7 +347,12 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
 .verif-st.vencida,.verif-st.cancelada{color:var(--bad)} .verif-st.rascunho{color:var(--muted)}
 
 /* QR do documento */
-.sheet .qr{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.sheet .qr{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%}
+.sheet .qr #qrbox{display:flex;justify-content:center}
+.sheet .qri{text-align:center;white-space:nowrap}
+.sheet .qri .qrs{font-size:9px}
+.sheet .qri b{font-weight:700}
+.sheet .qri .st-liberada{color:#1d8048}.sheet .qri .st-vencida,.sheet .qri .st-cancelada{color:#c2382c}
 .sheet .qr img,.sheet .qr canvas{width:78px;height:78px}
 
 /* Impressão: só o documento */
@@ -450,3 +455,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
 .sheet .etd td{vertical-align:middle}
 .sheet .just{text-align:justify;hyphens:auto}
 .sheet .lvd{display:inline-block;padding:1px 6px;border-radius:3px;font-weight:700}
+
+/* Versão 3.1 */
+.cols.idw{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:1180px){ .cols.idw{grid-template-columns:minmax(0,1fr)} }
+.sheet table.cen th,.sheet table.cen td{text-align:center;vertical-align:middle}
