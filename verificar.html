@@ -107,8 +107,10 @@
     <div><div class="vnum">${esc(d.numero)}</div><div class="verif-st ${st}">${LBL[st] || esc(st)}</div><p class="vmsg">${MSG[st] || ''}</p></div>
     ${topo}
     <dl class="vkv">
-      <dt>Empresa</dt><dd>${esc(d.empresa || '—')}</dd>
-      <dt>Local</dt><dd>${esc(d.local || '—')}</dd>
+      <dt>Empresa executante</dt><dd>${esc(d.empresa || '—')}</dd>
+      ${d.cliente_razao || d.cliente_cnpj ? `<dt>Dados da atividade</dt><dd>${esc(d.cliente_razao || '')}${d.cliente_cnpj ? `${d.cliente_razao ? '<br>' : ''}<small>CNPJ ${esc(d.cliente_cnpj)}</small>` : ''}</dd>` : ''}
+      ${tx(d.local) ? `<dt>Local</dt><dd>${esc(d.local)}</dd>` : ''}
+      ${fmtEnd(d.end_local) ? `<dt>Endereço do local</dt><dd>${esc(fmtEnd(d.end_local))}</dd>` : ''}
       <dt>Serviço</dt><dd>${esc(d.servico || '—')}</dd>
       <dt>Validade</dt><dd>${d.validade_ini ? `${fmtDH(d.validade_ini)} até ${fmtDH(d.validade_fim)}` : '—'}</dd>
       ${d.liberada_em ? `<dt>Liberada em</dt><dd>${fmtDH(d.liberada_em)}</dd>` : ''}
@@ -147,7 +149,7 @@
   /* Emergência */
   const tels = d.telefones || [], hosp = d.hospitais || [];
   if(tels.length || hosp.length){
-    const origem = fmtEnd(d.end_local);
+    const origem = fmtEnd(d.end_local) || fmtEnd(d.end_empresa);
     h += `<div class="vcard"><p class="vh">Em caso de emergência</p>
       ${tels.length ? `<div class="vtel">${tels.map(t => `<div><span>${esc(t.s || 'Telefone')}</span><b>${esc(t.t)}</b></div>`).join('')}</div>` : ''}
       ${hosp.map(x => { const dest = fmtEnd(x.addr); return `<div class="vhosp"><dl class="vkv">
