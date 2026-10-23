@@ -126,3 +126,6 @@ alter table public.usuarios add column if not exists reg_num  text;
 create unique index if not exists usuarios_cpf_empresa
   on public.usuarios (coalesce(cliente_id, '00000000-0000-0000-0000-000000000000'::uuid), cpf)
   where cpf is not null;
+
+-- Versão 3.2: quem suspendeu a PT (o técnico que suspendeu pode retomar)
+alter table public.documentos add column if not exists suspensa_por uuid references public.usuarios(id);
