@@ -126,3 +126,13 @@ O que muda:
 - Aba Riscos com a descrição das atividades por etapa: passo a passo, riscos, avaliação P × S por risco e medidas preventivas. Documentos antigos continuam com a tabela anterior.
 - Novos riscos na lista: acidente de trânsito, furtos e roubos, batida contra.
 - O histórico registra quem foi informado e quem registrou no sistema, quando forem pessoas diferentes.
+
+## Versão 3.2 (fluxo do elaborador e do liberador)
+
+1. **Supabase → SQL Editor:** rode `sql/01_estrutura.sql` e depois `sql/02_funcoes.sql`.
+2. **GitHub:** envie `assets/js/editor.js` para a pasta `assets/js` e os dois SQL para a pasta `sql`.
+
+Regras:
+- O liberador consulta tudo e não altera a APR. A conferência, a validade, o "Liberado por" e o botão Liberar PT abrem para ele só depois que a APR está sem pendências e o elaborador assinou.
+- O bloco "Elaborado por" só abre quando a APR (abas 01 a 06) está sem pendências. Alterar a APR depois de assinar remove a assinatura do elaborador (na tela e no servidor).
+- O técnico pode suspender, retomar a suspensão que ele mesmo fez e encerrar.
