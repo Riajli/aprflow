@@ -18,19 +18,19 @@ const svg = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 
 /* ---------- Bibliotecas (genéricas, configuráveis por cliente no sistema final) ---------- */
 const ATIV = [
- {id:'a01',perg:'A Permissão de Içamento está emitida e aprovada?',orient:'Confira se a Permissão de Içamento (plano de içamento) foi preenchida, analisada e aprovada, se o operador é habilitado e se os acessórios de içamento foram inspecionados. Informe o número da permissão no campo da atividade 01.',seNao:'A atividade não pode ser iniciada.',reqDup:[0],cond:'Operações de içamento',n:'01',icon:'icamento',nome:'Movimentação de cargas com guinchos, guindastes ou plataformas',tipo:'permissao',doc:'Permissão de Içamento',
+ {id:'a01',cond:'Operações de içamento',n:'01',icon:'icamento',nome:'Movimentação de cargas com guinchos, guindastes ou plataformas',tipo:'permissao',doc:'Permissão de Içamento',
   regra:'Com carga suspensa, a atividade só pode começar após o preenchimento, análise e aprovação da Permissão de Içamento (plano de içamento). Sem ela, a atividade não pode ser executada.',
   req:['Permissão de Içamento emitida e aprovada','Operador habilitado e acessórios de içamento inspecionados'],riscos:['r_obj','r_esmag','r_atrop']},
  {id:'a02',n:'02',icon:'obra',nome:'Construção civil',tipo:'controle',
   regra:'Seguir o PGR da obra e manter circulação e proteções coletivas da frente de trabalho conforme a NR-18.',
   req:['Proteções coletivas da frente de trabalho instaladas'],riscos:['r_obj','r_mesmo','r_poeira','r_corte']},
- {id:'a03',perg:'A medição de inflamáveis está dentro do limite definido pela empresa?',orient:'Meça a atmosfera no local imediatamente antes do início, com detector calibrado, e confirme que as fontes de ignição estão controladas.',seNao:'A atividade não pode ser iniciada. Ventile, elimine a fonte e repita a medição.',reqDup:[0],cond:'Atmosfera inflamável ou explosiva',n:'03',icon:'inflam',nome:'Gases, explosivos e/ou líquidos inflamáveis',tipo:'impeditiva',
+ {id:'a03',cond:'Atmosfera inflamável ou explosiva',n:'03',icon:'inflam',nome:'Gases, explosivos e/ou líquidos inflamáveis',tipo:'impeditiva',
   regra:'Medir a atmosfera antes do início. Com leitura de inflamáveis acima do limite definido pela empresa, a atividade é impeditiva e não pode ser iniciada.',
   req:['Medição de inflamáveis realizada e dentro do limite','Fontes de ignição controladas'],riscos:['r_incendio','r_quimico']},
  {id:'a04',n:'04',icon:'altura',nome:'Trabalho em altura e/ou sobre telhado',tipo:'controle',trein:'nr35',
   regra:'Trabalho acima de 2 m com risco de queda. Exige trabalhadores capacitados em NR-35, aptos no ASO, sistema de proteção contra quedas e plano de resgate.',
   req:['Sistema de proteção contra quedas e ancoragem inspecionados','Plano de resgate definido e equipamento de resgate no local'],riscos:['r_altura','r_obj','r_escada','r_telhado']},
- {id:'a05',perg:'A desenergização ou a distância mínima de segurança está garantida?',orient:'Confirme se o circuito foi desenergizado, bloqueado, etiquetado e teve a ausência de tensão constatada com detector, ou se a distância mínima de segurança prevista nas normas pode ser mantida durante toda a atividade.',seNao:'A atividade não pode ser iniciada ou deve ser suspensa imediatamente.',reqDup:[0],rk:['r_choque','r_arco'],cond:'Circuitos ou superfícies energizadas',n:'05',icon:'energ',nome:'Constatação de circuito ou superfície energizada',tipo:'impeditiva',trein:'nr10',
+ {id:'a05',rk:['r_choque','r_arco'],cond:'Circuitos ou superfícies energizadas',n:'05',icon:'energ',nome:'Constatação de circuito ou superfície energizada',tipo:'impeditiva',trein:'nr10',
   regra:'Manter o distanciamento mínimo de segurança previsto nas normas. Se não for possível garantir essa distância ou a desenergização, a atividade é impeditiva e deve ser suspensa imediatamente.',
   req:['Circuito desenergizado, bloqueado e etiquetado, ou distância de segurança garantida','Ausência de tensão constatada com detector'],riscos:['r_choque','r_arco']},
  {id:'a06',n:'06',icon:'prox',nome:'Trabalho próximo a área energizada',tipo:'controle',trein:'nr10',
@@ -39,13 +39,13 @@ const ATIV = [
  {id:'a07',n:'07',icon:'quente',nome:'Trabalho a quente',tipo:'controle',
   regra:'Solda, corte ou esmerilhamento. Remover ou proteger combustíveis no entorno e manter extintor e observador de fogo durante e após o trabalho.',
   req:['Combustíveis removidos ou protegidos no entorno','Extintor no local e observador de fogo designado'],riscos:['r_incendio','r_queim','r_fumos','r_particulas','r_radiacao']},
- {id:'a08',perg:'A Permissão de Entrada e Trabalho (PET) está emitida e liberada?',orient:'Confira se a PET (NR-33) foi preenchida, analisada e liberada pelo supervisor de entrada, com atmosfera avaliada e vigia designado. Informe o número da PET no campo da atividade 08.',seNao:'A entrada no espaço confinado e a atividade não podem ser realizadas.',reqDup:[0],rk:['r_atmosfera'],cond:'Trabalho em espaço confinado',n:'08',icon:'confinado',nome:'Espaço confinado',tipo:'permissao',doc:'Permissão de Entrada e Trabalho (PET)',trein:'nr33',
+ {id:'a08',rk:['r_atmosfera'],cond:'Trabalho em espaço confinado',n:'08',icon:'confinado',nome:'Espaço confinado',tipo:'permissao',doc:'Permissão de Entrada e Trabalho (PET)',trein:'nr33',
   regra:'É obrigatório preencher, analisar e liberar a Permissão de Entrada e Trabalho (PET – NR-33). Sem a emissão e autorização dessa permissão, a atividade não pode ser executada.',
   req:['PET emitida e liberada pelo supervisor de entrada','Atmosfera avaliada e vigia designado'],riscos:['r_atmosfera','r_quimico']},
  {id:'a09',n:'09',icon:'escav',nome:'Demolição e escavações',tipo:'controle',
   regra:'Verificar interferências subterrâneas antes de escavar. Escorar ou taludar conforme profundidade e tipo de solo, e isolar a borda da vala.',
   req:['Interferências subterrâneas verificadas','Escoramento ou taludamento executado'],riscos:['r_soterr','r_obj','r_mesmo']},
- {id:'a10',perg:'As condições climáticas estão adequadas, sem chuva, ventos fortes ou formação de raios?',orient:'Verifique o tempo no local no momento da liberação e acompanhe durante o trabalho. Trabalho em altura a céu aberto, atividades próximas a rede energizada e içamento de cargas exigem condições adequadas.',seNao:'Essas atividades ficam proibidas e devem ser suspensas. Retome só após nova verificação.',reqDup:[0],rk:['r_clima'],cond:'Chuva, ventos fortes ou formação de raios',n:'10',icon:'clima',nome:'Intempéries climáticas',tipo:'impeditiva',
+ {id:'a10',rk:['r_clima'],cond:'Chuva, ventos fortes ou formação de raios',n:'10',icon:'clima',nome:'Intempéries climáticas',tipo:'impeditiva',
   regra:'Com chuva, ventos fortes ou formação de raios, ficam proibidos trabalho em altura a céu aberto, atividades próximas a rede energizada e içamento de cargas. Retomar só após nova verificação.',
   req:['Condições climáticas verificadas no momento da liberação'],riscos:['r_clima']}
 ];
@@ -130,11 +130,10 @@ const SUG = {
  r_clima:{m:['m_clima'],e:['e_capa']},
  r_animais:{m:['m_animais'],e:['e_perneira','e_luvavaq']}
 };
-/* Verificações gerais de condição impeditiva: [chave, pergunta, orientação, se "Não"] */
 const IMP_GERAIS = [
- ['gi_trein','Todos os trabalhadores têm treinamento e ASO válidos para a atividade?','Confira se cada executante tem os treinamentos exigidos (NR-35, NR-10, NR-33, conforme as atividades marcadas) dentro da validade e ASO apto para a função.','O trabalhador sem treinamento ou ASO válido não pode executar a atividade.'],
- ['gi_epi','EPI, EPC e ferramentas estão disponíveis e em bom estado?','Confira se todos os equipamentos previstos nesta APR estão no local, inspecionados, sem danos e em uso correto pela equipe.','A atividade não pode ser iniciada até a substituição ou correção.'],
- ['gi_mud','O local e a tarefa estão iguais ao previsto nesta APR?','Confirme se o local, o método de trabalho, a equipe e as condições do ambiente são os mesmos considerados na análise de riscos.','A APR perde o efeito. Interrompa e emita um novo documento.']
+ ['gi_trein','Trabalhador sem treinamento válido ou sem ASO apto para a atividade'],
+ ['gi_epi','Falta de EPI, EPC ou ferramenta necessária, ou equipamento danificado'],
+ ['gi_mud','Mudança nas condições do local ou da tarefa sem revisão desta APR']
 ];
 const GERAIS = [
  ['g_dds','APR lida e explicada à equipe no local (DDS)'],['g_local','Condições do local conferidas pelo liberador'],
@@ -257,16 +256,14 @@ const evento = txt => state.meta.eventos.push({em:new Date().toISOString(),txt})
 /* ---------- Regras ---------- */
 function nivel(p,s){ if(!p||!s) return null; const n=p*s; const c=n<=3?'baixo':n<=6?'moderado':n<=9?'alto':'critico'; return {n,c,label:{baixo:'Baixo',moderado:'Moderado',alto:'Alto',critico:'Crítico'}[c]}; }
 const ativOn = () => ATIV.filter(a=>state.ativ[a.id]);
-/* Requisitos que não repetem a pergunta da condição impeditiva (a chave mantém o índice original) */
-const reqDe = a => a.req.map((t,i)=>({i,t})).filter(x=>!(a.reqDup||[]).includes(x.i));
-function requisitos(){ const r=[]; ativOn().forEach(a=>reqDe(a).forEach(x=>r.push({key:`${a.id}_${x.i}`,txt:x.t,a}))); return r; }
+function requisitos(){ const r=[]; ativOn().forEach(a=>a.req.forEach((t,i)=>r.push({key:`${a.id}_${i}`,txt:t,a}))); return r; }
 const impPorRisco = a => (a.rk||[]).filter(x=>state.riscos[x]?.on).map(x=>RISCOS.find(y=>y[0]===x)[1]);
 const impAplica = a => !!state.ativ[a.id] || impPorRisco(a).length>0;
 function impedimentos(){
   const L=[];
-  ATIV.filter(a=>a.tipo!=='controle' && impAplica(a)).forEach(a=>L.push({key:a.id,titulo:`Nº ${a.n} – ${a.cond}`,perg:a.perg,orient:a.orient,seNao:a.seNao,a}));
-  IMP_GERAIS.forEach(([k,pg,ori,sn])=>L.push({key:k,titulo:'',perg:pg,orient:ori,seNao:sn}));
-  state.impExtra.forEach((x,i)=>{ if(tx(x.txt)) L.push({key:'ix_'+i,titulo:'',perg:tx(x.txt),orient:'',seNao:'A atividade não pode ser iniciada ou deve ser suspensa.'}); });
+  ATIV.filter(a=>a.tipo!=='controle' && impAplica(a)).forEach(a=>L.push({key:a.id,titulo:`Nº ${a.n} – ${a.cond}`,txt:a.regra}));
+  IMP_GERAIS.forEach(([k,t])=>L.push({key:k,titulo:t,txt:''}));
+  state.impExtra.forEach((x,i)=>{ if(tx(x.txt)) L.push({key:'ix_'+i,titulo:x.txt,txt:''}); });
   return L;
 }
 function treinReq(){ return [...new Set(ativOn().map(a=>a.trein).filter(Boolean))]; }
@@ -319,8 +316,8 @@ function pend(){
   s.emerg.hospitais.forEach((h,i)=>{ if(h.nome.trim()&&!h.tel.trim()) add('emerg',`${h.nome}: informe o telefone do hospital`,false); });
   if(!tx(s.id.endLocal.log)||!tx(s.id.endLocal.cidade)) add('ident','Informe o endereço do local do serviço (origem da rota até o hospital)',false);
   impedimentos().forEach(c=>{ const v=L.imped?.[c.key];
-    if(v==='presente') add('lib',`Resposta "Não": ${c.perg} A atividade não pode ser liberada`);
-    else if(v!=='ausente') add('lib',`Responda a verificação: ${c.perg}`); });
+    if(v==='presente') add('lib',`Condição impeditiva presente: ${c.titulo}. A atividade não pode ser liberada`);
+    else if(v!=='ausente') add('lib',`Verifique a condição impeditiva: ${c.titulo}`); });
   requisitos().forEach(r=>{ if(!L.req[r.key]) add('lib',`Requisito: ${r.txt}`); });
   GERAIS.forEach(g=>{ if(!L.gerais[g[0]]) add('lib',`Verificação: ${g[1]}`); });
   if(!L.ini||!L.fim) add('lib','Defina início e fim da validade da PT');
@@ -427,18 +424,18 @@ T.ativ = () => {
       <p>${a.regra}</p>
       ${a.tipo==='permissao'?inp(`permNum.${a.id}`,`Nº da ${a.doc}`,{req:1}):''}
       ${a.trein?`<p><b>Treinamento exigido:</b> ${TREIN[a.trein]} para todos os executantes.</p>`:''}
-      ${reqDe(a).length?`<ul>${reqDe(a).map(x=>`<li>${x.t}</li>`).join('')}</ul>`:''}
+      <ul>${a.req.map(r=>`<li>${r}</li>`).join('')}</ul>
     </div>`).join('') : `<div class="empty">Nenhuma atividade crítica marcada. Se o serviço não tiver nenhuma, siga para os riscos.</div>`}
   </section>
 </div>
 <section class="box" style="margin-top:18px"><h2>Condições impeditivas</h2>
-  <p class="hint">Verificações feitas no local, na liberação da PT. A resposta “Sim” libera; a resposta “Não” impede o início ou exige a suspensão imediata.</p>
+  <p class="hint">Situações em que a atividade não pode ser iniciada ou deve ser suspensa imediatamente. As aplicáveis são verificadas no local, na liberação da PT.</p>
   <div class="imgrid">
     ${ATIV.filter(a=>a.tipo!=='controle').map(a=>{ const ap=impAplica(a), pr=impPorRisco(a); return `<div class="imp ${ap?'':'off'}">
-      <div class="hd"><span>Nº ${a.n} – ${a.cond}</span><span class="kind ${ap?'impeditiva':''}">${ap?'Aplicável':'Não aplicável'}</span></div><p class="q">${a.perg}</p><p>${a.orient}</p><p><b>Se “Não”:</b> ${a.seNao}</p>
+      <div class="hd"><span>Nº ${a.n} – ${a.cond}</span><span class="kind ${ap?'impeditiva':''}">${ap?'Aplicável':'Não aplicável'}</span></div><p>${a.regra}</p>
       ${!state.ativ[a.id]&&pr.length?`<p><b style="color:var(--bad)">Aplicável pelo risco marcado:</b> ${pr.join('; ')}</p>`:''}</div>`; }).join('')}
-    ${IMP_GERAIS.map(([k,pg,ori,sn])=>`<div class="imp"><div class="hd"><span>Verificação geral</span><span class="kind impeditiva">Sempre aplicável</span></div><p class="q">${pg}</p><p>${ori}</p><p><b>Se “Não”:</b> ${sn}</p></div>`).join('')}
-    ${state.impExtra.map((x,i)=>`<div class="imp">${inp(`impExtra.${i}.txt`,`Pergunta de verificação ${i+1} (escreva de forma que “Sim” libere o trabalho)`,{area:1,rows:2,ph:'Ex.: A área está isolada e sem circulação de pessoas?'})}<div><button class="btn ghost" data-act="rmImp" data-i="${i}">Remover</button></div></div>`).join('')}
+    ${IMP_GERAIS.map(([k,t])=>`<div class="imp"><div class="hd"><span>${t}</span><span class="kind impeditiva">Sempre aplicável</span></div><p>A atividade não pode ser iniciada, ou deve ser suspensa, enquanto a situação persistir.</p></div>`).join('')}
+    ${state.impExtra.map((x,i)=>`<div class="imp">${inp(`impExtra.${i}.txt`,`Condição impeditiva ${i+1}`,{area:1,rows:2,ph:'Ex.: presença de público não isolado na área'})}<div><button class="btn ghost" data-act="rmImp" data-i="${i}">Remover</button></div></div>`).join('')}
     <button class="addcard" style="min-height:120px" data-act="addImp">+ Incluir condição impeditiva</button>
   </div>
 </section>`;
@@ -584,10 +581,10 @@ T.lib = () => {
   <section class="box"><h2>Conferência para liberação</h2><p class="hint">Itens gerados a partir das atividades críticas marcadas na APR.</p>
     <h3>Condições impeditivas – verificação no local</h3>
     <div class="stack" style="gap:6px">${impedimentos().map(c=>{ const k=`lib.imped.${c.key}`, v=state.lib.imped?.[c.key]||'';
-      return `<div class="impv ${v}"><div class="t">${c.titulo?`<span class="ctit">${esc(c.titulo)}</span>`:''}<b>${esc(c.perg)}</b>${c.orient?`<small>${esc(c.orient)}</small>`:''}${v==='presente'?`<small class="sn"><b>Se “Não”:</b> ${esc(c.seNao)}</small>`:''}</div><div class="seg" role="radiogroup" aria-label="${esc(c.perg)}">
-        <label><input type="radio" name="${fid(k)}" id="${fid(k)}_a" data-k="${k}" value="ausente" ${v==='ausente'?'checked':''}><span>Sim</span></label>
-        <label class="p"><input type="radio" name="${fid(k)}" id="${fid(k)}_p" data-k="${k}" value="presente" ${v==='presente'?'checked':''}><span>Não</span></label></div></div>`; }).join('')}</div>
-    <p class="hint" style="margin:8px 0 16px">Qualquer resposta “Não” impede a liberação. Se a situação mudar durante o trabalho, suspenda a PT.</p>
+      return `<div class="impv ${v}"><div class="t"><b>${esc(c.titulo)}</b></div><div class="seg" role="radiogroup" aria-label="${esc(c.titulo)}">
+        <label><input type="radio" name="${fid(k)}" id="${fid(k)}_a" data-k="${k}" value="ausente" ${v==='ausente'?'checked':''}><span>Ausente</span></label>
+        <label class="p"><input type="radio" name="${fid(k)}" id="${fid(k)}_p" data-k="${k}" value="presente" ${v==='presente'?'checked':''}><span>Presente</span></label></div></div>`; }).join('')}</div>
+    <p class="hint" style="margin:8px 0 16px">Qualquer condição presente impede a liberação. Se surgir durante o trabalho, suspenda a PT.</p>
     <h3>Requisitos das atividades</h3>
     <div class="list">${rq.length?rq.map(r=>chk(`lib.req.${r.key}`,`<b>${r.a.n}</b> · ${r.txt}`)).join(''):'<div class="empty">Nenhuma atividade crítica marcada.</div>'}</div>
     <h3 style="margin-top:16px">Verificações gerais</h3>
@@ -658,9 +655,9 @@ T.doc = () => {
   <div class="ag">${ATIV.map(a=>`<div>${x(s.ativ[a.id])}<span><b>${a.n}</b> ${a.nome}</span></div>`).join('')}</div>
   ${s.outras.trim()?`<div class="pr"><b>Outras situações:</b> ${esc(s.outras)}</div>`:''}
   <div class="sh">Condições impeditivas</div>
-  <table><tr><th>Verificação no local</th><th class="ctr" style="width:14%">Resposta</th></tr>
-    ${impedimentos().map(c=>{ const v=s.lib.imped?.[c.key]; const a=c.a;
-      return `<tr><td>${c.titulo?`<div class="note">${esc(c.titulo)}${a&&a.tipo==='permissao'?` · ${a.doc} nº ${esc(s.permNum[a.id]||'—')}`:''}</div>`:''}<b>${esc(c.perg)}</b>${c.orient?`<div class="note">${esc(c.orient)} <b>Se “Não”:</b> ${esc(c.seNao)}</div>`:''}</td><td class="ctr">${v==='ausente'?'<span class="ok">Sim</span>':v==='presente'?'<b style="color:#c2382c">NÃO</b>':'—'}</td></tr>`; }).join('')}
+  <table><tr><th>Condição</th><th class="ctr" style="width:16%">Verificação no local</th></tr>
+    ${impedimentos().map(c=>{ const v=s.lib.imped?.[c.key]; const a=ATIV.find(x=>x.id===c.key);
+      return `<tr><td><b>${esc(c.titulo)}${a&&a.tipo==='permissao'?` (${a.doc} nº ${esc(s.permNum[a.id]||'—')})`:''}</b>${c.txt?`<div>${c.txt}</div>`:''}</td><td class="ctr">${v==='ausente'?'<span class="ok">Ausente</span>':v==='presente'?'<b style="color:#c2382c">PRESENTE</b>':'—'}</td></tr>`; }).join('')}
   </table>
   ${ativOn().some(a=>a.tipo==='controle')?`<div class="sh">Requisitos das atividades críticas</div><div class="pr">${ativOn().filter(a=>a.tipo==='controle').map(a=>`<p><b>Nº ${a.n} – ${a.nome}:</b> ${a.regra}</p>`).join('')}</div>`:''}
   <div class="sh">Riscos potenciais</div>

@@ -106,14 +106,13 @@
 
     /* ---------- Condições impeditivas ---------- */
     secao('Condições impeditivas');
-    tabela({ head:[['Verificação no local', { content:'Resposta', styles:{ halign:'center' } }]],
-      body: impedimentos().map(c => { const v = s.lib.imped?.[c.key]; const a = c.a;
-        const tit = c.titulo ? T(c.titulo) + (a && a.tipo === 'permissao' ? ` · ${T(a.doc)} nº ${T(s.permNum[a.id] || '-')}` : '') + '\n' : '';
-        const det = c.orient ? `\n${T(c.orient)} Se "Não": ${T(c.seNao)}` : '';
-        return [ { content: tit + T(c.perg) + det },
-                 { content: v === 'ausente' ? 'Sim' : v === 'presente' ? 'NÃO' : '-', styles:{ halign:'center', fontStyle:'bold',
+    tabela({ head:[['Condição', { content:'Verificação no local', styles:{ halign:'center' } }]],
+      body: impedimentos().map(c => { const v = s.lib.imped?.[c.key]; const a = ATIV.find(x => x.id === c.key);
+        const tit = T(c.titulo) + (a && a.tipo === 'permissao' ? ` (${T(a.doc)} nº ${T(s.permNum[a.id] || '-')})` : '');
+        return [ { content: tit + (c.txt ? '\n' + T(c.txt) : ''), titulo: tit },
+                 { content: v === 'ausente' ? 'Ausente' : v === 'presente' ? 'PRESENTE' : '-', styles:{ halign:'center', fontStyle:'bold',
                    textColor: v === 'ausente' ? COR.verde : v === 'presente' ? COR.verm : COR.tinta } } ]; }),
-      columnStyles:{ 1:{ cellWidth:24 } } });
+      columnStyles:{ 1:{ cellWidth:34 } } });
 
     const ctrl = ativOn().filter(a => a.tipo === 'controle');
     if(ctrl.length){ secao('Requisitos das atividades críticas');
