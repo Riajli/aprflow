@@ -200,7 +200,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 function novo(){
   return {
     meta:{numero:`APR-PT-${new Date().getFullYear()}-0001`,rev:'00',codigo:'',status:'rascunho',liberadaEm:null,encerradaEm:null,eventos:[],exemplo:false},
-    id:{empresa:'',cnpj:'',endEmpresa:END0(),local:'',endLocal:END0(),os:'',servico:'',dataIni:hoje(),dataFim:'',elaboracao:hoje()},
+    id:{empresa:'',cnpj:'',endEmpresa:END0(),cliRazao:'',cliCnpj:'',local:'',endLocal:END0(),os:'',servico:'',dataIni:'',dataFim:'',elaboracao:hoje()},
     ativ:{},outras:'',permNum:{},usarMatriz:true,modoEtapas:true,etapas:[],
     riscos:{},riscosExtra:[],impExtra:[],medidas:{},medidaOutra:'',epi:{},epc:{},epiOutro:'',epcOutro:'',
     equipe:[],
@@ -316,6 +316,10 @@ function sugeridos(){
   riscosOn().forEach(r=>{ const g=SUG[r[0]]||{}; (g.m||[]).forEach(x=>m.add(x)); (g.e||[]).forEach(x=>e.add(x)); (g.c||[]).forEach(x=>c.add(x)); });
   return {m,e,c};
 }
+/* Origem da rota até os hospitais: endereço da atividade; se estiver em branco, o da empresa */
+const endOk = a => !!(a && tx(a.log) && tx(a.cidade));
+function origemRota(s=state){ return endOk(s.id.endLocal) ? fmtEnd(s.id.endLocal,false) : endOk(s.id.endEmpresa) ? fmtEnd(s.id.endEmpresa,false) : ''; }
+const origemTipo = (s=state) => endOk(s.id.endLocal) ? 'local' : endOk(s.id.endEmpresa) ? 'empresa' : '';
 function statusVis(){ const s=state.meta.status; if(s==='cancelada') return s; if(s==='liberada' && state.lib.fim && new Date()>new Date(state.lib.fim)) return 'vencida'; return s; }
 
 function pend(){
@@ -323,9 +327,11 @@ function pend(){
   if(!s.id.empresa.trim()) add('ident','Informe a empresa');
   if(!s.id.cnpj.trim()) add('ident','Informe o CNPJ da empresa');
   else if(!cnpjOk(s.id.cnpj)) add('ident','CNPJ inválido');
-  if(!s.id.local.trim()) add('ident','Informe o local do serviço');
+  if(tx(s.id.cliCnpj) && !cnpjOk(s.id.cliCnpj)) add('ident','Dados da atividade: CNPJ inválido');
+  if(tx(s.id.cliRazao) && !tx(s.id.cliCnpj)) add('ident','Dados da atividade: informe o CNPJ do cliente',false);
   if(!s.id.servico.trim()) add('ident','Descreva o serviço a ser executado');
-  if(!s.id.dataIni) add('ident','Informe a data inicial');
+  if(!s.id.dataIni) add('ident','Informe a data inicial da execução');
+  else if(s.id.elaboracao && s.id.dataIni < s.id.elaboracao) add('ident','A execução começa antes da data de elaboração da APR. Confira as datas',false);
   if(s.id.dataIni && s.id.dataFim && s.id.dataFim < s.id.dataIni) add('ident','Data final anterior à data inicial');
   ativOn().filter(a=>a.tipo==='permissao').forEach(a=>{ if(!(s.permNum[a.id]||'').trim()) add('ativ',`Atividade ${a.n}: informe o nº da ${a.doc}`); });
   if(s.ativ.a10 && (s.ativ.a01||s.ativ.a04||s.ativ.a05||s.ativ.a06)) add('ativ','Intempéries junto com altura, eletricidade ou içamento: interromper se houver chuva, vento ou raios',false);
@@ -362,16 +368,17 @@ function pend(){
   const tr = treinReq();
   if(!s.equipe.length) add('equipe','Inclua os trabalhadores executantes');
   s.equipe.forEach((w,i)=>{ const nm=w.nome.trim()||`Trabalhador ${i+1}`;
-    if(!(w.cpf||'').trim()) add('equipe',`${nm}: CPF não informado`,false);
+    if(!(w.cpf||'').trim()) add('equipe',`${nm}: informe o CPF`);
     else if(!cpfOk(w.cpf)) add('equipe',`${nm}: CPF inválido`);
     if(!w.nome.trim()) add('equipe',`Trabalhador ${i+1}: informe o nome`);
+    if(!tx(w.funcao)) add('equipe',`${nm}: informe a função`);
     tr.forEach(t=>{ if(!w.trein?.[t]) add('equipe',`${nm}: sem treinamento ${TREIN[t]} válido`); });
     if(!w.aso) add('equipe',`${nm}: ASO apto não confirmado`);
     if(!w.ass) add('equipe',`${nm}: falta assinatura de ciência`); });
   if(!s.emerg.tel.some(t=>t.t.trim())) add('emerg','Informe ao menos um telefone de emergência do local');
   if(!s.emerg.hospitais.some(h=>tx(h.nome)&&tx(h.addr.log)&&tx(h.addr.cidade))) add('emerg','Informe ao menos um hospital de referência com endereço (logradouro e cidade)');
   s.emerg.hospitais.forEach((h,i)=>{ if(h.nome.trim()&&!h.tel.trim()) add('emerg',`${h.nome}: informe o telefone do hospital`,false); });
-  if(!tx(s.id.endLocal.log)||!tx(s.id.endLocal.cidade)) add('ident','Informe o endereço do local do serviço (origem da rota até o hospital)',false);
+  if(!origemRota()) add('ident','Informe o endereço do local do serviço ou da empresa (origem da rota até o hospital)',false);
   impedimentos().forEach(c=>{ const v=L.imped?.[c.key];
     if(v==='presente') add('lib',`Resposta "Não": ${c.perg} A atividade não pode ser liberada`);
     else if(v!=='ausente') add('lib',`Responda a verificação: ${c.perg}`); });
@@ -441,19 +448,16 @@ async function buscarCep(base,cep){
 const T = {};
 T.ident = () => `
 <div class="cols w2">
-  <section class="box"><h2>Identificação</h2><p class="hint">A APR pode cobrir vários dias. Cada liberação de PT vale por um turno dentro desse período.</p>
+  <section class="box"><h2>Identificação</h2><p class="hint">A APR pode ser elaborada dias antes. A conferência e as assinaturas da PT são feitas no dia da execução, e cada liberação vale por um turno dentro do período.</p>
     <div class="form-grid">
-      ${inp('id.empresa','Empresa',{req:1,cls:'c8'})}
-      ${inp('id.cnpj','CNPJ',{req:1,cls:'c4',mask:'cnpj',ph:'00.000.000/0000-00'})}
-      ${inp('id.local','Local do serviço',{req:1,cls:'c12',ph:'Ex.: Galpão B, sala de máquinas, telhado do bloco 2'})}
       ${inp('id.servico','Serviço a ser executado',{req:1,area:1,rows:3,cls:'c12'})}
-      ${inp('id.os','Ordem de serviço',{cls:'c3'})}
-      ${inp('id.dataIni','Data inicial',{type:'date',req:1,cls:'c3'})}
-      ${inp('id.dataFim','Data final',{type:'date',cls:'c3'})}
       ${inp('id.elaboracao','Elaboração da APR',{type:'date',cls:'c3'})}
+      ${inp('id.dataIni','Início da execução',{type:'date',req:1,cls:'c3'})}
+      ${inp('id.dataFim','Fim da execução',{type:'date',cls:'c3'})}
+      ${inp('id.os','Ordem de serviço',{cls:'c3'})}
     </div>
   </section>
-  <div class="stack"><section class="box"><h3>Documento</h3>
+  <section class="box"><h3>Documento</h3>
     <div class="form-grid">
       <div class="fld c12"><span>Número</span><div style="font:500 16px/1.4 var(--f-mono);padding:8px 0">${esc(state.meta.numero)}</div></div>
       ${inp('meta.codigo','Código do formulário',{cls:'c6',ph:'Ex.: código interno do cliente'})}
@@ -461,11 +465,25 @@ T.ident = () => `
     </div>
     <p class="hint" style="margin:14px 0 0">O número é gerado pelo sistema, em sequência por empresa e ano.</p>
   </section>
-  <section class="box stack"><h3 style="margin:0">Endereços</h3>
+</div>
+<div class="cols idw" style="margin-top:18px">
+  <section class="box stack"><h2 style="margin:0">Empresa executante</h2>
+    <div class="form-grid">
+      ${inp('id.empresa','Razão social',{req:1,cls:'c6'})}
+      ${inp('id.cnpj','CNPJ',{req:1,cls:'c6',mask:'cnpj',ph:'00.000.000/0000-00'})}
+    </div>
     ${endBlock('id.endEmpresa','Endereço da empresa',{copiar:1})}
+  </section>
+  <section class="box stack"><h2 style="margin:0">Dados da atividade</h2>
+    <p class="hint" style="margin:0">Cliente e local onde a atividade será executada. Campos opcionais: o que ficar em branco não aparece no documento.</p>
+    <div class="form-grid">
+      ${inp('id.cliRazao','Razão social do cliente',{cls:'c6'})}
+      ${inp('id.cliCnpj','CNPJ do cliente',{cls:'c6',mask:'cnpj',ph:'00.000.000/0000-00'})}
+      ${inp('id.local','Local do serviço',{cls:'c12',ph:'Ex.: Galpão B, sala de máquinas, telhado do bloco 2'})}
+    </div>
     ${endBlock('id.endLocal','Endereço do local do serviço')}
-    <p class="hint" style="margin:0">O endereço do local é a origem da rota até os hospitais.</p>
-  </section></div>
+    <p class="hint" style="margin:0">A rota até os hospitais parte deste endereço. Se ficar em branco, usa o endereço da empresa.</p>
+  </section>
 </div>`;
 
 T.ativ = () => {
@@ -632,8 +650,8 @@ T.equipe = () => {
   ${state.equipe.map((w,i)=>`<section class="box wk">
     <div style="display:flex;align-items:center;gap:8px"><h3 style="margin:0;flex:1">Executante ${i+1}</h3><button class="btn ghost" data-act="rmWorker" data-i="${i}" aria-label="Remover executante ${i+1}">Remover</button></div>
     ${inp(`equipe.${i}.nome`,'Nome',{req:1})}
-    <div class="row">${inp(`equipe.${i}.cpf`,'CPF',{mask:'cpf',inputmode:'numeric',ph:'000.000.000-00'})}${inp(`equipe.${i}.mat`,'Matrícula')}</div>
-    ${inp(`equipe.${i}.funcao`,'Função')}
+    <div class="row">${inp(`equipe.${i}.cpf`,'CPF',{req:1,mask:'cpf',inputmode:'numeric',ph:'000.000.000-00'})}${inp(`equipe.${i}.mat`,'Matrícula')}</div>
+    ${inp(`equipe.${i}.funcao`,'Função',{req:1})}
     <div class="fld"><span>Treinamentos válidos</span><div class="trs">${Object.keys(TREIN).map(t=>{ const has=w.trein?.[t], need=tr.includes(t);
       return `<label class="tr ${has?'has':need?'need':''}"><input type="checkbox" id="${fid(`equipe.${i}.trein.${t}`)}" data-k="equipe.${i}.trein.${t}" ${has?'checked':''}>${TREIN[t]}${need&&!has?' · exigido':''}</label>`; }).join('')}</div></div>
     ${chk(`equipe.${i}.aso`,'ASO válido e apto para a função')}
@@ -662,7 +680,7 @@ function hospMapa(h,orig){
     </div>`;
 }
 T.emerg = () => {
-  const orig = fmtEnd(state.id.endLocal,false);
+  const orig = origemRota();
 
   return `
 <div class="cols w2">
@@ -676,7 +694,7 @@ T.emerg = () => {
     </div>
   </section>
 </div>
-<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:22px"><h2 style="margin:0">Hospitais de referência</h2><span class="hint" style="margin:0">${orig?`Rota a partir de: <b>${esc(orig)}</b>`:'Informe o endereço do local na aba Identificação para traçar a rota.'}</span></div>
+<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:22px"><h2 style="margin:0">Hospitais de referência</h2><span class="hint" style="margin:0">${orig?`Rota a partir ${origemTipo()==='local'?'do endereço da atividade':'do endereço da empresa (o endereço da atividade está em branco)'}: <b>${esc(orig)}</b>`:'Informe o endereço da atividade ou da empresa na aba Identificação para traçar a rota.'}</span></div>
 <div class="hgrid">
   ${state.emerg.hospitais.map((h,i)=>`<section class="box hosp" id="hosp-${i}">
     <div style="display:flex;align-items:center;gap:8px"><h3 style="margin:0;flex:1">Hospital ${i+1}</h3>${state.emerg.hospitais.length>1?`<button class="btn ghost" data-act="rmHosp" data-i="${i}" aria-label="Remover hospital ${i+1}">Remover</button>`:''}</div>
@@ -790,6 +808,10 @@ ${st==='encerrada'?`<div class="banner ok"><b>PT encerrada em ${fmtDH(state.meta
 </div></fieldset>`;
 };
 
+function periodoTxt(s=state){
+  const ex = s.id.dataIni ? (s.id.dataFim && s.id.dataFim!==s.id.dataIni ? `Execução de ${fmtData(s.id.dataIni)} a ${fmtData(s.id.dataFim)}` : `Execução em ${fmtData(s.id.dataIni)}`) : 'Execução: —';
+  return `${s.id.elaboracao?`Elaborada em ${fmtData(s.id.elaboracao)} · `:''}${ex}`;
+}
 function docEtapas(){
   const E=state.etapas, res=resumoRiscos();
   const rows = E.map((e,i)=>{ const rs=Math.max(1,e.riscos.length), med=tx(e.med).split('\n').map(tx).filter(Boolean).map(m=>`<div>${esc(m)}</div>`).join('');
@@ -802,7 +824,7 @@ function docEtapas(){
     <tr><th class="ctr" style="width:9%">Probabilidade (P)</th><th class="ctr" style="width:9%">Severidade (S)</th><th class="ctr" style="width:10%">Nível</th></tr>
     ${rows||'<tr><td colspan="7">&nbsp;</td></tr>'}</table>
   <div class="sh">Riscos potenciais (resumo)</div>
-  <table><tr><th>Risco</th><th class="ctr" style="width:20%">Maior nível</th><th class="ctr" style="width:18%">Etapas</th></tr>
+  <table class="cen"><tr><th>Risco</th><th style="width:20%">Maior nível</th><th style="width:18%">Etapas</th></tr>
     ${res.map(r=>`<tr><td>${esc(r.nome)}</td><td class="ctr">${r.nv?`${r.nv.label} (${r.nv.n})`:'—'}</td><td class="ctr">${r.et.join(', ')}</td></tr>`).join('')||'<tr><td colspan="3">&nbsp;</td></tr>'}</table>`;
 }
 
@@ -815,14 +837,15 @@ T.doc = () => {
 <div class="banner no-print"><span style="flex:1;min-width:220px">O QR code leva à página de verificação, que mostra a situação atualizada da PT para quem estiver no local.</span><button class="btn pri" data-act="pdf">Baixar PDF</button><button class="btn" data-act="imprimir">Imprimir</button></div>
 <div class="docwrap"><article class="sheet" lang="pt-BR">
   <div class="tt"><div class="l">APRFlow</div><div><h1>ANÁLISE PRELIMINAR DE RISCOS / PERMISSÃO DE TRABALHO</h1></div>
-    <div class="r"><div class="qr"><div id="qrbox"></div><div>Nº ${esc(s.meta.numero)}<br>${s.meta.codigo?esc(s.meta.codigo)+' · ':''}Rev. ${esc(s.meta.rev)}<br>Situação: ${statusVis().toUpperCase()}</div></div></div></div>
+    <div class="r"><div class="qr"><div id="qrbox"></div><div class="qri"><div>Nº ${esc(s.meta.numero)}</div>${tx(s.meta.codigo)?`<div class="${tx(s.meta.codigo).length>16?'qrs':''}">Cód. ${esc(s.meta.codigo)}</div>`:''}<div>Rev. ${esc(s.meta.rev)}</div><div>Situação: <b class="st-${statusVis()}">${statusVis().toUpperCase()}</b></div></div></div></div></div>
   <table>
-    <tr><th style="width:16%">Empresa</th><td>${esc(s.id.empresa)}</td><th style="width:16%">CNPJ</th><td>${esc(s.id.cnpj)}</td></tr>
+    <tr><th style="width:18%">Empresa executante</th><td>${esc(s.id.empresa)}</td><th style="width:10%">CNPJ</th><td style="width:24%">${esc(s.id.cnpj)}</td></tr>
     ${fmtEnd(s.id.endEmpresa)?`<tr><th>Endereço da empresa</th><td colspan="3">${esc(fmtEnd(s.id.endEmpresa))}</td></tr>`:''}
-    <tr><th>Local do serviço</th><td colspan="3">${esc(s.id.local)}</td></tr>
+    ${tx(s.id.cliRazao)||tx(s.id.cliCnpj)?`<tr><th>Dados da atividade</th><td>${esc(s.id.cliRazao)}</td><th>CNPJ</th><td>${esc(s.id.cliCnpj)}</td></tr>`:''}
+    ${tx(s.id.local)?`<tr><th>Local do serviço</th><td colspan="3">${esc(s.id.local)}</td></tr>`:''}
     ${fmtEnd(s.id.endLocal)?`<tr><th>Endereço do local</th><td colspan="3">${esc(fmtEnd(s.id.endLocal))}</td></tr>`:''}
-    <tr><th>Data inicial</th><td>${fmtData(s.id.dataIni)}</td><th>Data final</th><td>${fmtData(s.id.dataFim)}</td></tr>
-    <tr><th>Elaboração da APR</th><td>${fmtData(s.id.elaboracao)}</td><th>Ordem de serviço</th><td>${esc(s.id.os)}</td></tr>
+    <tr><th>Período</th><td colspan="3">${periodoTxt()}</td></tr>
+    ${tx(s.id.os)?`<tr><th>Ordem de serviço</th><td colspan="3">${esc(s.id.os)}</td></tr>`:''}
     <tr><th>Serviço a ser executado</th><td colspan="3">${esc(s.id.servico)}</td></tr>
   </table>
   <div class="sh">Identificação de atividades críticas e condições especiais</div>
@@ -844,15 +867,15 @@ T.doc = () => {
   <div class="sh">EPC e ferramentas</div><div class="cl">${sel(EPC,'epc')}${s.epcOutro.trim()?`<div>☑ ${esc(s.epcOutro)}</div>`:''}</div>
   <div class="sh">Plano de resposta a emergências</div>
   <div class="pr">${s.emerg.planos.map((p,i)=>`<p><b>Plano ${'ABCD'[i]}:</b> ${esc(p)}</p>`).join('')}</div>
-  <table><tr><th>Telefones de emergência</th><th style="width:30%">Telefone</th></tr>
+  <table class="cen"><tr><th>Telefones de emergência</th><th style="width:30%">Telefone</th></tr>
     ${tels.length?tels.map(t=>`<tr><td>${esc(t.s)}</td><td>${esc(t.t)}</td></tr>`).join(''):'<tr><td>&nbsp;</td><td></td></tr><tr><td>&nbsp;</td><td></td></tr>'}
   </table>
-  <table><tr><th>Hospital de referência</th><th>Endereço</th><th style="width:16%">Telefone</th><th style="width:10%">Distância</th><th style="width:10%">Tempo</th></tr>
+  <table class="cen"><tr><th>Hospital de referência</th><th>Endereço</th><th style="width:16%">Telefone</th><th style="width:10%">Distância</th><th style="width:10%">Tempo</th></tr>
     ${s.emerg.hospitais.filter(h=>tx(h.nome)||fmtEnd(h.addr)).map(h=>`<tr><td>${esc(h.nome)}</td><td>${esc(fmtEnd(h.addr))}</td><td>${esc(h.tel)}</td><td>${h.km?esc(h.km)+' km':''}</td><td>${h.min?esc(h.min)+' min':''}</td></tr>`).join('')||'<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td></tr>'}
   </table>
-  ${fmtEnd(s.id.endLocal)?`<div class="note" style="margin:-6px 0 10px">Rota a partir de: ${esc(fmtEnd(s.id.endLocal))}</div>`:''}
+  ${origemRota()?`<div class="note" style="margin:-6px 0 10px">Rota a partir de: ${esc(origemRota())}</div>`:''}
   <div class="sh">Trabalhadores executantes</div>
-  <table><tr><th>Nome</th><th>Função</th><th>CPF</th><th>Matrícula</th><th>Treinamentos</th><th>ASO</th><th style="width:20%">Ciência</th></tr>
+  <table class="cen"><tr><th>Nome</th><th>Função</th><th>CPF</th><th>Matrícula</th><th>Treinamentos</th><th>ASO</th><th style="width:20%">Ciência</th></tr>
     ${s.equipe.map(w=>`<tr><td>${esc(w.nome)}</td><td>${esc(w.funcao)}</td><td>${esc(w.cpf)}</td><td>${esc(w.mat)}</td><td>${Object.keys(TREIN).filter(t=>w.trein?.[t]).map(t=>TREIN[t]).join(', ')||'—'}</td><td>${w.aso?'Apto':'—'}</td><td class="sigtd">${sigImg(w.ass,w.em)}</td></tr>`).join('')}
   </table>
   <div class="sh">Permissão de trabalho – liberação</div>
@@ -936,7 +959,7 @@ EDROOT.addEventListener('input', e=>{
   if(el.type==='checkbox' || el.type==='radio' || el.tagName==='SELECT') renderTab(); else renderChrome();
 });
 EDROOT.addEventListener('change', e=>{ const k=e.target.dataset.k||''; const m=k.match(/^emerg\.hospitais\.(\d+)\./);
-  if(m && 'map' in e.target.dataset){ const slot=document.querySelector(`#hosp-${m[1]} .mapslot`); if(slot) slot.innerHTML=hospMapa(state.emerg.hospitais[+m[1]],fmtEnd(state.id.endLocal,false)); } });
+  if(m && 'map' in e.target.dataset){ const slot=document.querySelector(`#hosp-${m[1]} .mapslot`); if(slot) slot.innerHTML=hospMapa(state.emerg.hospitais[+m[1]],origemRota()); } });
 let armed = null;
 EDROOT.addEventListener('click', e=>{
   const b=e.target.closest('[data-act]'); if(!b || !state) return;

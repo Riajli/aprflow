@@ -69,26 +69,35 @@
     doc.rect(MM.L, y, CW, HH);
     const RW = 62;
     doc.line(MM.L + 38, y, MM.L + 38, y + HH); doc.line(PW - MM.R - RW, y, PW - MM.R - RW, y + HH);
-    doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(...COR.marca);
-    doc.text('APRFlow', MM.L + 19, y + HH/2 + 2, { align:'center' });
+    doc.setFont('helvetica','bold'); doc.setFontSize(17); doc.setTextColor(...COR.marca);
+    doc.text('APRFlow', MM.L + 19, y + HH/2, { align:'center', baseline:'middle' });
     doc.setTextColor(...COR.tinta); doc.setFontSize(12.5);
     doc.text(['ANÁLISE PRELIMINAR DE RISCOS /', 'PERMISSÃO DE TRABALHO'], MM.L + 38 + (CW - 38 - RW)/2, y + HH/2 - 1.5, { align:'center' });
-    const qr = qrDataURL(urlVerificacao());
-    if(qr) doc.addImage(qr, 'PNG', PW - MM.R - RW + 2, y + 2.5, 25, 25);
-    doc.setFont('courier','normal'); doc.setFontSize(7.2);
-    doc.text([`Nº ${T(s.meta.numero)}`, `${s.meta.codigo ? T(s.meta.codigo)+' · ' : ''}Rev. ${T(s.meta.rev)}`, '', 'Situação:', st.toUpperCase()],
-             PW - MM.R - RW + 29, y + 8, { align:'left', lineHeightFactor:1.45 });
-    doc.setFont('helvetica','normal');
+    /* Bloco do QR code: QR centralizado na sua metade, uma informação por linha, situação em negrito */
+    const qr = qrDataURL(urlVerificacao()), QS = 24, bx = PW - MM.R - RW;
+    if(qr) doc.addImage(qr, 'PNG', bx + 2.5, y + (HH - QS)/2, QS, QS);
+    const tx0 = bx + QS + 4.5, tw = RW - QS - 6;
+    const linhas = [`Nº ${T(s.meta.numero)}`, ...(tx(s.meta.codigo) ? [`Cód. ${T(s.meta.codigo)}`] : []), `Rev. ${T(s.meta.rev)}`];
+    doc.setFont('courier','normal');
+    const fsz = t => { let f = 7.2; doc.setFontSize(f); while(f > 5 && doc.getTextWidth(t) > tw){ f -= 0.2; doc.setFontSize(f); } return f; };
+    const LH = 3.6, total = (linhas.length + 2) * LH; let ly = y + (HH - total)/2 + 2.6;
+    linhas.forEach(t => { fsz(t); doc.text(t, tx0, ly); ly += LH; });
+    doc.setFontSize(7.2); doc.text('Situação:', tx0, ly + LH*0.2); ly += LH;
+    doc.setFont('courier','bold'); doc.setFontSize(7.6);
+    doc.setTextColor(...(st === 'liberada' ? COR.verde : ['vencida','cancelada'].includes(st) ? COR.verm : COR.tinta));
+    doc.text(st.toUpperCase(), tx0, ly + LH*0.2);
+    doc.setTextColor(...COR.tinta); doc.setFont('helvetica','normal');
     y += HH + 3;
 
     /* ---------- Identificação ---------- */
     const rows = [
-      [th('Empresa'), td(s.id.empresa), th('CNPJ'), td(s.id.cnpj)],
+      [th('Empresa executante'), td(s.id.empresa), th('CNPJ'), td(s.id.cnpj)],
       ...(fmtEnd(s.id.endEmpresa) ? [[th('Endereço da empresa'), td(fmtEnd(s.id.endEmpresa), { colSpan:3 })]] : []),
-      [th('Local do serviço'), td(s.id.local, { colSpan:3 })],
+      ...(tx(s.id.cliRazao) || tx(s.id.cliCnpj) ? [[th('Dados da atividade'), td(s.id.cliRazao), th('CNPJ'), td(s.id.cliCnpj)]] : []),
+      ...(tx(s.id.local) ? [[th('Local do serviço'), td(s.id.local, { colSpan:3 })]] : []),
       ...(fmtEnd(s.id.endLocal) ? [[th('Endereço do local'), td(fmtEnd(s.id.endLocal), { colSpan:3 })]] : []),
-      [th('Data inicial'), td(fmtData(s.id.dataIni)), th('Data final'), td(fmtData(s.id.dataFim))],
-      [th('Elaboração da APR'), td(fmtData(s.id.elaboracao)), th('Ordem de serviço'), td(s.id.os)],
+      [th('Período'), td(periodoTxt(s), { colSpan:3 })],
+      ...(tx(s.id.os) ? [[th('Ordem de serviço'), td(s.id.os, { colSpan:3 })]] : []),
       [th('Serviço a ser executado'), td(s.id.servico, { colSpan:3 })]
     ];
     tabela({ body: rows, columnStyles:{ 0:{cellWidth:34}, 1:{cellWidth:CW/2-34}, 2:{cellWidth:30}, 3:{cellWidth:CW/2-30} } });
@@ -151,7 +160,7 @@
       tabela({ head:[['Risco', { content:'Maior nível', styles:{halign:'center'} }, { content:'Etapas', styles:{halign:'center'} }]],
         body: res.length ? res.map(r => [T(r.nome), { content: r.nv ? `${r.nv.label} (${r.nv.n})` : '-', styles:{ halign:'center', fillColor: r.nv ? COR_NV[r.nv.c] : [255,255,255] } }, { content:r.et.join(', '), styles:{ halign:'center' } }])
           : [[{ content:'Nenhum risco informado', colSpan:3 }]],
-        columnStyles:{ 1:{cellWidth:32}, 2:{cellWidth:28} } });
+        styles:{ halign:'center' }, headStyles:{ halign:'center' }, columnStyles:{ 1:{cellWidth:32}, 2:{cellWidth:28} } });
     } else {
     secao('Riscos potenciais');
     const rBody = [
@@ -180,13 +189,13 @@
     tabela({ body: s.emerg.planos.map((p, i) => [{ content:`Plano ${'ABCD'[i]}`, styles:{ fontStyle:'bold', fillColor:COR.cab } }, T(p)]), columnStyles:{ 0:{cellWidth:20} } });
     const tels = s.emerg.tel.filter(t => tx(t.s) || tx(t.t));
     y += 2;
-    tabela({ head:[['Telefones de emergência', 'Telefone']], body: tels.length ? tels.map(t => [T(t.s), T(t.t)]) : [[' ', ' ']], columnStyles:{ 1:{cellWidth:50} } });
+    tabela({ head:[['Telefones de emergência', 'Telefone']], body: tels.length ? tels.map(t => [T(t.s), T(t.t)]) : [[' ', ' ']], styles:{ halign:'center' }, headStyles:{ halign:'center' }, columnStyles:{ 1:{cellWidth:50} } });
     const hosp = s.emerg.hospitais.filter(h => tx(h.nome) || fmtEnd(h.addr));
     y += 2;
     tabela({ head:[['Hospital de referência', 'Endereço', 'Telefone', 'Distância', 'Tempo']],
       body: hosp.length ? hosp.map(h => [T(h.nome), T(fmtEnd(h.addr)), T(h.tel), tx(h.km) ? T(h.km)+' km' : '', tx(h.min) ? T(h.min)+' min' : '']) : [[' ',' ',' ',' ',' ']],
-      columnStyles:{ 0:{cellWidth:42}, 2:{cellWidth:28}, 3:{cellWidth:18, halign:'center'}, 4:{cellWidth:16, halign:'center'} } });
-    if(fmtEnd(s.id.endLocal)){ espaco(6); doc.setFontSize(7); doc.setTextColor(...COR.cinza); doc.text(T('Rota a partir de: ' + fmtEnd(s.id.endLocal)), MM.L, y + 3.5, { maxWidth:CW }); doc.setTextColor(...COR.tinta); y += 5; }
+      styles:{ halign:'center' }, headStyles:{ halign:'center' }, columnStyles:{ 0:{cellWidth:42}, 2:{cellWidth:28}, 3:{cellWidth:18}, 4:{cellWidth:16} } });
+    if(origemRota(s)){ espaco(6); doc.setFontSize(7); doc.setTextColor(...COR.cinza); doc.text(T('Rota a partir de: ' + origemRota(s)), MM.L, y + 3.5, { maxWidth:CW }); doc.setTextColor(...COR.tinta); y += 5; }
 
     /* ---------- Assinaturas (desenho comum) ---------- */
     const SIGH = 17;
@@ -199,7 +208,7 @@
 
     /* ---------- Equipe ---------- */
     secao('Trabalhadores executantes');
-    tabela({ head:[['Nome','Função','CPF','Matrícula','Treinamentos','ASO', { content:'Ciência', styles:{ halign:'center' } }]],
+    tabela({ head:[['Nome','Função','CPF','Matrícula','Treinamentos','ASO','Ciência']], styles:{ halign:'center' }, headStyles:{ halign:'center' },
       body: s.equipe.length ? s.equipe.map(w => [T(w.nome), T(w.funcao), T(w.cpf), T(w.mat),
         Object.keys(TREIN).filter(t => w.trein?.[t]).map(t => TREIN[t]).join(', ') || '-', w.aso ? 'Apto' : '-', { content:'', sig:w.ass, em:w.em }])
         : [[{ content:'Nenhum executante incluído', colSpan:7 }]],
