@@ -43,6 +43,12 @@
           <label class="fld"><span>Nome <b class="rq">*</b></span><input type="text" id="uNome" autocomplete="off"></label>
           <label class="fld"><span>E-mail <b class="rq">*</b></span><input type="email" id="uEmail" autocomplete="off"></label>
           <label class="fld"><span>Perfil</span><select id="uPerfil"></select></label>
+          <div class="form-grid">
+            <label class="fld c6"><span>CPF <b class="rq">*</b></span><input type="text" id="uCpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00" autocomplete="off"><em class="err" id="uCpfErr" hidden>CPF inválido. Confira os números.</em></label>
+            <label class="fld c6"><span>Função ou cargo <b class="rq">*</b></span><input type="text" id="uFuncao" placeholder="Ex.: Técnico de Segurança do Trabalho"></label>
+            <label class="fld c4" id="uRtF"><span>Registro <b class="rq">*</b></span><select id="uRegTipo"><option value="MTE">MTE (técnico)</option><option value="CREA">CREA (engenheiro)</option></select></label>
+            <label class="fld c8" id="uRnF"><span>Nº do registro <b class="rq">*</b></span><input type="text" id="uRegNum" placeholder="Ex.: SP/012345 ou 5061234567/SP"></label>
+          </div>
           <label class="fld" id="uClienteF"><span>Cliente</span><select id="uCliente"></select></label>
           <label class="fld"><span id="uSenhaL">Senha inicial <b class="rq">*</b></span><input type="password" id="uSenha" autocomplete="new-password" placeholder="Mínimo de 8 caracteres"></label>
           <label class="ck" style="padding:0"><input type="checkbox" id="uAtivo" checked><span>Usuário ativo</span></label>

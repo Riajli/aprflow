@@ -113,6 +113,7 @@
       <dt>Validade</dt><dd>${d.validade_ini ? `${fmtDH(d.validade_ini)} até ${fmtDH(d.validade_fim)}` : '—'}</dd>
       ${d.liberada_em ? `<dt>Liberada em</dt><dd>${fmtDH(d.liberada_em)}</dd>` : ''}
       ${d.encerrada_em ? `<dt>Encerrada em</dt><dd>${fmtDH(d.encerrada_em)}</dd>` : ''}
+      ${d.encerramento && d.encerramento.nome ? `<dt>Encerrada por</dt><dd>${esc(d.encerramento.nome)}${d.encerramento.funcao ? ' · ' + esc(d.encerramento.funcao) : ''}${d.encerramento.situacao === 'nao' ? ' · serviço não concluído' : ''}</dd>` : ''}
     </dl></div>`;
 
   /* Liberação */

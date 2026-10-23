@@ -113,3 +113,16 @@ O GitHub desativa rotinas agendadas em repositórios sem alterações por 60 dia
 1. **Supabase → SQL Editor:** rode de novo `sql/01_estrutura.sql` e depois `sql/02_funcoes.sql`. Confirme o aviso de operação destrutiva. Os dados existentes são mantidos.
 2. **GitHub:** envie os arquivos alterados (Add file → Upload files), substituindo os antigos: `app.html`, `admin.html`, `README.md`, a pasta `assets` e a pasta `sql`. Não é preciso mexer em `config.js` nem na pasta `.github`.
 3. Abra o site com **Ctrl + F5** para o navegador buscar os arquivos novos.
+
+## Atualizar para a versão 3 (etapas e dados dos usuários)
+
+1. **Supabase → SQL Editor:** rode de novo `sql/01_estrutura.sql` e depois `sql/02_funcoes.sql`. Os dados existentes são mantidos.
+2. **GitHub:** envie os arquivos alterados, substituindo os antigos: `admin.html`, `verificar.html`, `README.md`, a pasta `assets` e a pasta `sql`.
+3. Abra o site com **Ctrl + F5**.
+4. No primeiro acesso, cada usuário completa CPF, função e, para administrador, gestor e técnico, o registro MTE ou CREA.
+
+O que muda:
+- Cadastro de usuários com CPF, função e registro profissional. Esses dados preenchem Elaborado por, Liberado por e Responsável pelo encerramento, sempre editáveis.
+- Aba Riscos com a descrição das atividades por etapa: passo a passo, riscos, avaliação P × S por risco e medidas preventivas. Documentos antigos continuam com a tabela anterior.
+- Novos riscos na lista: acidente de trânsito, furtos e roubos, batida contra.
+- O histórico registra quem foi informado e quem registrou no sistema, quando forem pessoas diferentes.
