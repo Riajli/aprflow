@@ -36,12 +36,69 @@ begin
   end if;
 end $$;
 
+-- CPF: confere os dígitos verificadores
+create or replace function public._cpf_valido(p text)
+returns boolean language plpgsql immutable as $$
+declare d text := regexp_replace(coalesce(p,''), '\D', '', 'g'); s int; t int; i int; dv int;
+begin
+  if length(d) <> 11 or d ~ '^(\d)\1{10}$' then return false; end if;
+  for t in 9..10 loop
+    s := 0;
+    for i in 1..t loop s := s + substr(d, i, 1)::int * (t + 2 - i); end loop;
+    dv := (s * 10) % 11 % 10;
+    if dv <> substr(d, t + 1, 1)::int then return false; end if;
+  end loop;
+  return true;
+end $$;
+
+-- CPF gravado sempre no formato 000.000.000-00
+create or replace function public._cpf_fmt(p text)
+returns text language sql immutable as $$
+  select case when length(regexp_replace(coalesce(p,''), '\D', '', 'g')) = 11 then
+    regexp_replace(regexp_replace(coalesce(p,''), '\D', '', 'g'), '^(\d{3})(\d{3})(\d{3})(\d{2})$', '\1.\2.\3-\4')
+  else nullif(trim(coalesce(p,'')), '') end;
+$$;
+
+-- Perfis que elaboram APR precisam de registro profissional (MTE ou CREA)
+create or replace function public._exige_registro(p_perfil text)
+returns boolean language sql immutable as $$ select p_perfil in ('admin','gestor','tecnico'); $$;
+
+-- O que falta no cadastro do usuário
+create or replace function public._cadastro_pendente(u public.usuarios)
+returns text[] language sql stable as $$
+  select array_remove(array[
+    case when not public._cpf_valido(u.cpf) then 'cpf' end,
+    case when coalesce(trim(u.funcao),'') = '' then 'funcao' end,
+    case when public._exige_registro(u.perfil)
+          and (coalesce(u.reg_tipo,'') not in ('MTE','CREA') or coalesce(trim(u.reg_num),'') = '') then 'registro' end
+  ], null);
+$$;
+
+-- Confere CPF, função e registro conforme o perfil
+create or replace function public._validar_cadastro(p_perfil text, p_cpf text, p_funcao text, p_reg_tipo text, p_reg_num text)
+returns void language plpgsql immutable as $$
+begin
+  if not public._cpf_valido(p_cpf) then
+    raise exception 'DADOS_INVALIDOS' using hint = 'Informe um CPF válido.';
+  end if;
+  if coalesce(trim(p_funcao),'') = '' then
+    raise exception 'DADOS_INVALIDOS' using hint = 'Informe a função ou cargo.';
+  end if;
+  if public._exige_registro(p_perfil) then
+    if coalesce(p_reg_tipo,'') not in ('MTE','CREA') or coalesce(trim(p_reg_num),'') = '' then
+      raise exception 'DADOS_INVALIDOS' using hint = 'Informe o registro profissional (MTE ou CREA) e o número.';
+    end if;
+  end if;
+end $$;
+
 create or replace function public._usuario_json(u public.usuarios)
 returns jsonb language sql stable security definer set search_path = public as $$
   select jsonb_build_object(
     'id', u.id, 'nome', u.nome, 'email', u.email, 'perfil', u.perfil,
     'cliente_id', u.cliente_id,
-    'cliente_nome', (select nome from clientes where id = u.cliente_id));
+    'cliente_nome', (select nome from clientes where id = u.cliente_id),
+    'cpf', u.cpf, 'funcao', u.funcao, 'reg_tipo', u.reg_tipo, 'reg_num', u.reg_num,
+    'pendente', to_jsonb(public._cadastro_pendente(u)));
 $$;
 
 create or replace function public._log(u public.usuarios, p_acao text, p_cliente uuid, p_doc uuid, p_detalhe jsonb default null)
@@ -94,6 +151,15 @@ returns timestamptz language sql stable as $$
               else (p_txt::timestamp at time zone 'America/Sao_Paulo') end;
 $$;
 
+-- Texto do histórico: quem foi informado no documento e, se for outra pessoa, quem registrou no sistema
+create or replace function public._quem(p_acao text, p_informado text, p_logado text)
+returns text language sql immutable as $$
+  select case
+    when coalesce(trim(p_informado),'') = '' then format('%s por %s', p_acao, p_logado)
+    when lower(trim(p_informado)) = lower(trim(p_logado)) then format('%s por %s', p_acao, trim(p_informado))
+    else format('%s por %s (registrado no sistema por %s)', p_acao, trim(p_informado), p_logado) end;
+$$;
+
 -- Regras conferidas no servidor antes de liberar a PT
 create or replace function public._validar_liberacao(dd jsonb)
 returns text[] language plpgsql stable as $$
@@ -134,6 +200,29 @@ begin
     for r in select key, value from jsonb_each_text(dd#>'{lib,imped}') loop
       if r.value = 'presente' then e := array_append(e, 'Há verificação de condição impeditiva respondida com Não'::text); exit; end if;
     end loop;
+  end if;
+
+  -- Descrição das atividades por etapa (documentos a partir da versão 3)
+  if coalesce((dd->>'modoEtapas')::boolean, false) then
+    if coalesce(jsonb_typeof(dd->'etapas'),'') <> 'array' or jsonb_array_length(dd->'etapas') = 0 then
+      e := array_append(e, 'Nenhuma etapa da atividade descrita'::text);
+    else
+      n := 0;
+      for w in select * from jsonb_array_elements(dd->'etapas') loop
+        n := n + 1;
+        if coalesce(trim(w->>'ativ'),'') = '' then e := array_append(e, format('Etapa %s sem atividade', n)::text); end if;
+        if coalesce(trim(w->>'med'),'') = ''  then e := array_append(e, format('Etapa %s sem medidas preventivas', n)::text); end if;
+        if coalesce(jsonb_typeof(w->'riscos'),'') <> 'array' or jsonb_array_length(w->'riscos') = 0 then
+          e := array_append(e, format('Etapa %s sem riscos', n)::text);
+        elsif exists (select 1 from jsonb_array_elements(w->'riscos') x
+                       where coalesce((x->>'p')::int,0) = 0 or coalesce((x->>'s')::int,0) = 0) then
+          e := array_append(e, format('Etapa %s com risco sem avaliação', n)::text);
+        elsif exists (select 1 from jsonb_array_elements(w->'riscos') x
+                       where coalesce((x->>'p')::int,0) * coalesce((x->>'s')::int,0) >= 12) then
+          e := array_append(e, format('Etapa %s com risco classificado como crítico', n)::text);
+        end if;
+      end loop;
+    end if;
   end if;
 
   if coalesce((dd->>'usarMatriz')::boolean, true) and jsonb_typeof(dd->'riscos') = 'object' then
@@ -233,6 +322,23 @@ begin
   perform public._log(u, 'senha_alterada', null, null);
 end $$;
 
+-- O próprio usuário completa CPF, função e registro (pedido no primeiro acesso após a atualização)
+create or replace function public.completar_cadastro(p_token text, p_cpf text, p_funcao text,
+                                                    p_reg_tipo text default null, p_reg_num text default null)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare u public.usuarios := public._sessao(p_token);
+begin
+  perform public._validar_cadastro(u.perfil, p_cpf, p_funcao, p_reg_tipo, p_reg_num);
+  update usuarios set cpf = public._cpf_fmt(p_cpf), funcao = trim(p_funcao),
+         reg_tipo = case when public._exige_registro(perfil) then p_reg_tipo else nullif(p_reg_tipo,'') end,
+         reg_num  = case when public._exige_registro(perfil) then trim(p_reg_num) else nullif(trim(coalesce(p_reg_num,'')),'') end
+   where id = u.id returning * into u;
+  perform public._log(u, 'cadastro_completado', null, null);
+  return public._usuario_json(u);
+exception when unique_violation then
+  raise exception 'CPF_EM_USO' using hint = 'Já existe um usuário com este CPF nesta empresa.';
+end $$;
+
 -- ---------- Clientes ----------
 
 create or replace function public.listar_clientes(p_token text)
@@ -276,16 +382,23 @@ declare u public.usuarios := public._sessao(p_token);
 begin
   perform public._exigir(u, 'usuarios');
   return coalesce((select jsonb_agg(jsonb_build_object('id', x.id, 'nome', x.nome, 'email', x.email, 'perfil', x.perfil,
-            'ativo', x.ativo, 'cliente_id', x.cliente_id, 'cliente_nome', c.nome, 'ultimo_acesso', x.ultimo_acesso)
+            'ativo', x.ativo, 'cliente_id', x.cliente_id, 'cliente_nome', c.nome, 'ultimo_acesso', x.ultimo_acesso,
+            'cpf', x.cpf, 'funcao', x.funcao, 'reg_tipo', x.reg_tipo, 'reg_num', x.reg_num,
+            'pendente', to_jsonb(public._cadastro_pendente(x)))
             order by c.nome nulls first, x.nome)
     from usuarios x left join clientes c on c.id = x.cliente_id
    where u.perfil = 'admin' or x.cliente_id = u.cliente_id), '[]'::jsonb);
 end $$;
 
+drop function if exists public.salvar_usuario(text, uuid, text, text, text, uuid, boolean, text);
 create or replace function public.salvar_usuario(p_token text, p_id uuid, p_nome text, p_email text, p_perfil text,
-                                                p_cliente_id uuid, p_ativo boolean, p_senha text)
+                                                p_cliente_id uuid, p_ativo boolean, p_senha text,
+                                                p_cpf text default null, p_funcao text default null,
+                                                p_reg_tipo text default null, p_reg_num text default null)
 returns jsonb language plpgsql security definer set search_path = public, extensions as $$
-declare u public.usuarios := public._sessao(p_token); x public.usuarios; cli uuid := p_cliente_id;
+declare u public.usuarios := public._sessao(p_token); x public.usuarios; cli uuid := p_cliente_id; cn text;
+        rt text := case when public._exige_registro(p_perfil) then p_reg_tipo else nullif(p_reg_tipo,'') end;
+        rn text := case when public._exige_registro(p_perfil) then trim(p_reg_num) else nullif(trim(coalesce(p_reg_num,'')),'') end;
 begin
   perform public._exigir(u, 'usuarios');
   if u.perfil <> 'admin' then
@@ -302,13 +415,15 @@ begin
   if coalesce(p_senha,'') <> '' and length(p_senha) < 8 then
     raise exception 'SENHA_CURTA' using hint = 'A senha deve ter pelo menos 8 caracteres.';
   end if;
+  perform public._validar_cadastro(p_perfil, p_cpf, p_funcao, p_reg_tipo, p_reg_num);
 
   if p_id is null then
     if coalesce(p_senha,'') = '' then
       raise exception 'DADOS_INVALIDOS' using hint = 'Defina uma senha inicial.';
     end if;
-    insert into usuarios(nome, email, senha_hash, perfil, cliente_id, ativo)
-    values (trim(p_nome), lower(trim(p_email)), crypt(p_senha, gen_salt('bf')), p_perfil, cli, coalesce(p_ativo,true))
+    insert into usuarios(nome, email, senha_hash, perfil, cliente_id, ativo, cpf, funcao, reg_tipo, reg_num)
+    values (trim(p_nome), lower(trim(p_email)), crypt(p_senha, gen_salt('bf')), p_perfil, cli, coalesce(p_ativo,true),
+            public._cpf_fmt(p_cpf), trim(p_funcao), rt, rn)
     returning * into x;
     perform public._log(u, 'usuario_criado', cli, null, jsonb_build_object('email', x.email, 'perfil', x.perfil));
   else
@@ -321,6 +436,7 @@ begin
     end if;
     update usuarios set nome = trim(p_nome), email = lower(trim(p_email)), perfil = p_perfil,
            cliente_id = cli, ativo = coalesce(p_ativo,true),
+           cpf = public._cpf_fmt(p_cpf), funcao = trim(p_funcao), reg_tipo = rt, reg_num = rn,
            senha_hash = case when coalesce(p_senha,'') <> '' then crypt(p_senha, gen_salt('bf')) else senha_hash end
      where id = p_id returning * into x;
     if not x.ativo or coalesce(p_senha,'') <> '' then delete from sessoes where usuario_id = x.id; end if;
@@ -328,6 +444,10 @@ begin
   end if;
   return jsonb_build_object('id', x.id);
 exception when unique_violation then
+  get stacked diagnostics cn = constraint_name;
+  if cn = 'usuarios_cpf_empresa' then
+    raise exception 'CPF_EM_USO' using hint = 'Já existe um usuário com este CPF nesta empresa.';
+  end if;
   raise exception 'EMAIL_EM_USO' using hint = 'Já existe um usuário com este e-mail.';
 end $$;
 
@@ -436,7 +556,7 @@ begin
          validade_ini = public._dh(dados#>>'{lib,ini}'), validade_fim = public._dh(dados#>>'{lib,fim}'),
          atualizado_em = now()
    where id = p_id returning * into d;
-  perform public._evento(d.id, format('PT liberada no sistema por %s (liberador: %s)', u.nome, coalesce(d.dados#>>'{lib,liberador,nome}','')));
+  perform public._evento(d.id, public._quem('PT liberada', d.dados#>>'{lib,liberador,nome}', u.nome));
   perform public._log(u, 'documento_liberado', d.cliente_id, d.id, jsonb_build_object('numero', d.numero));
   select * into d from documentos where id = p_id;
   return public._doc_json(d);
@@ -488,10 +608,13 @@ begin
   if coalesce(trim(d.dados#>>'{enc,resp,nome}'),'') = '' or coalesce(d.dados#>>'{enc,resp,ass}','') = '' then
     raise exception 'ENCERRAMENTO_INCOMPLETO' using hint = 'Informe e assine como responsável pelo encerramento.';
   end if;
+  if not public._cpf_valido(d.dados#>>'{enc,resp,cpf}') then
+    raise exception 'ENCERRAMENTO_INCOMPLETO' using hint = 'Informe um CPF válido do responsável pelo encerramento.';
+  end if;
   update documentos set status = 'encerrada', encerrada_em = now(), encerrada_por = u.id, atualizado_em = now()
    where id = p_id;
-  perform public._evento(p_id, format('PT encerrada por %s (%s)', d.dados#>>'{enc,resp,nome}',
-          case when d.dados#>>'{enc,situacao}' = 'nao' then 'serviço não concluído' else 'serviço concluído' end));
+  perform public._evento(p_id, public._quem('PT encerrada', d.dados#>>'{enc,resp,nome}', u.nome) ||
+          case when d.dados#>>'{enc,situacao}' = 'nao' then ' · serviço não concluído' else ' · serviço concluído' end);
   perform public._log(u, 'documento_encerrado', d.cliente_id, d.id);
   select * into d from documentos where id = p_id;
   return public._doc_json(d);
@@ -613,6 +736,8 @@ begin
                    from jsonb_array_elements(case when jsonb_typeof(dd#>'{emerg,hospitais}') = 'array' then dd#>'{emerg,hospitais}' else '[]'::jsonb end) h
                   where coalesce(trim(h->>'nome'),'') <> ''), '[]'::jsonb),
     'end_local', dd#>'{id,endLocal}',
+    'encerramento', case when d.status = 'encerrada' then jsonb_build_object('nome', dd#>>'{enc,resp,nome}', 'funcao', dd#>>'{enc,resp,funcao}',
+                      'situacao', dd#>>'{enc,situacao}') end,
     'suspensao', case when d.status = 'suspensa' then
                    (select e from jsonb_array_elements(d.eventos) e where e->>'txt' like 'PT suspensa%' order by e->>'em' desc limit 1) end);
 end $$;
@@ -636,7 +761,8 @@ grant execute on function public.alterar_minha_senha(text, text, text)    to ano
 grant execute on function public.listar_clientes(text)                    to anon;
 grant execute on function public.salvar_cliente(text, uuid, text, text, boolean, jsonb) to anon;
 grant execute on function public.listar_usuarios(text)                    to anon;
-grant execute on function public.salvar_usuario(text, uuid, text, text, text, uuid, boolean, text) to anon;
+grant execute on function public.salvar_usuario(text, uuid, text, text, text, uuid, boolean, text, text, text, text, text) to anon;
+grant execute on function public.completar_cadastro(text, text, text, text, text) to anon;
 grant execute on function public.criar_documento(text, uuid)              to anon;
 grant execute on function public.listar_documentos(text, text, text, boolean) to anon;
 grant execute on function public.excluir_documento(text, uuid, text)     to anon;

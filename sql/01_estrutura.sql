@@ -111,3 +111,18 @@ create index if not exists documentos_lixeira on public.documentos(excluido_em) 
 alter table public.atividades drop constraint if exists atividades_documento_id_fkey;
 alter table public.atividades add constraint atividades_documento_id_fkey
   foreign key (documento_id) references public.documentos(id) on delete set null;
+
+-- =====================================================================
+-- Versão 3 (pode rodar de novo: só acrescenta)
+-- =====================================================================
+
+-- Dados profissionais do usuário (pré-preenchem Elaborado por, Liberado por e Encerramento)
+alter table public.usuarios add column if not exists cpf      text;
+alter table public.usuarios add column if not exists funcao   text;
+alter table public.usuarios add column if not exists reg_tipo text;
+alter table public.usuarios add column if not exists reg_num  text;
+
+-- O mesmo CPF não se repete dentro da mesma empresa
+create unique index if not exists usuarios_cpf_empresa
+  on public.usuarios (coalesce(cliente_id, '00000000-0000-0000-0000-000000000000'::uuid), cpf)
+  where cpf is not null;
