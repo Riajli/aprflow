@@ -736,6 +736,9 @@ begin
                    from jsonb_array_elements(case when jsonb_typeof(dd#>'{emerg,hospitais}') = 'array' then dd#>'{emerg,hospitais}' else '[]'::jsonb end) h
                   where coalesce(trim(h->>'nome'),'') <> ''), '[]'::jsonb),
     'end_local', dd#>'{id,endLocal}',
+    'end_empresa', dd#>'{id,endEmpresa}',
+    'cliente_razao', nullif(trim(coalesce(dd#>>'{id,cliRazao}','')),''),
+    'cliente_cnpj', nullif(trim(coalesce(dd#>>'{id,cliCnpj}','')),''),
     'encerramento', case when d.status = 'encerrada' then jsonb_build_object('nome', dd#>>'{enc,resp,nome}', 'funcao', dd#>>'{enc,resp,funcao}',
                       'situacao', dd#>>'{enc,situacao}') end,
     'suspensao', case when d.status = 'suspensa' then
