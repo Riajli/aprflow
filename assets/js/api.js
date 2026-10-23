@@ -20,7 +20,8 @@
     DADOS_INVALIDOS: 'Confira os dados informados.',
     DOCUMENTO_NA_LIXEIRA: 'Este documento está na lixeira.',
     EXCLUSAO_BLOQUEADA: 'Este documento não pode ser apagado na situação atual.',
-    CONFIRMACAO_INVALIDA: 'O número digitado não confere com o documento.'
+    CONFIRMACAO_INVALIDA: 'O número digitado não confere com o documento.',
+    CPF_EM_USO: 'Já existe um usuário com este CPF nesta empresa.'
   };
 
   function ls(fn){ try { return fn(); } catch(e){ return null; } }
@@ -65,9 +66,48 @@
     /* Para páginas internas: exige sessão válida */
     async exigirLogin(){
       if(!API.token()){ location.href = 'index.html'; return null; }
-      const u = await API.call('eu');
+      let u = await API.call('eu');
+      if(u.pendente && u.pendente.length) u = await API.completarCadastro(u);
       API.salvarSessao(API.token(), u);
       return u;
+    },
+
+    /* Pede CPF, função e registro que faltam no cadastro. Só segue depois de salvar. */
+    completarCadastro(u){
+      const esc = API.esc, reg = API.exigeRegistro(u.perfil);
+      const m = document.createElement('div');
+      m.className = 'modal'; m.setAttribute('role','dialog'); m.setAttribute('aria-modal','true'); m.setAttribute('aria-labelledby','ccTit');
+      m.innerHTML = `<form class="card" novalidate>
+        <h3 id="ccTit" style="margin:0">Complete seu cadastro</h3>
+        <p class="hint" style="margin:0">Olá, ${esc(u.nome)}. Estes dados passam a preencher automaticamente os campos de responsável nos documentos (elaborador, liberador e encerramento). Você continua podendo alterar no documento quando for outra pessoa.</p>
+        <div class="form-grid">
+          <label class="fld c6"><span>CPF <b class="rq">*</b></span><input id="ccCpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00" value="${esc(u.cpf||'')}" autocomplete="off"></label>
+          <label class="fld c6"><span>Função ou cargo <b class="rq">*</b></span><input id="ccFun" value="${esc(u.funcao||'')}" placeholder="Ex.: Técnico de Segurança do Trabalho"></label>
+          ${reg?`<label class="fld c4"><span>Registro <b class="rq">*</b></span><select id="ccRt"><option value="MTE" ${u.reg_tipo!=='CREA'?'selected':''}>MTE (técnico)</option><option value="CREA" ${u.reg_tipo==='CREA'?'selected':''}>CREA (engenheiro)</option></select></label>
+          <label class="fld c8"><span>Nº do registro <b class="rq">*</b></span><input id="ccRn" value="${esc(u.reg_num||'')}" placeholder="Ex.: SP/012345 ou 5061234567/SP"></label>`:''}
+        </div>
+        <div class="msg bad" id="ccErr" hidden></div>
+        <div class="acts"><button type="button" class="btn ghost" id="ccSair">Sair</button><button type="submit" class="btn pri">Salvar e continuar</button></div>
+      </form>`;
+      document.body.appendChild(m);
+      const q = id => m.querySelector('#'+id), err = t => { q('ccErr').textContent = t; q('ccErr').hidden = false; };
+      q('ccCpf').addEventListener('input', e => { e.target.value = API.maskCPF(e.target.value); });
+      q('ccSair').addEventListener('click', () => API.sair());
+      setTimeout(() => q(u.cpf ? 'ccFun' : 'ccCpf').focus(), 50);
+      return new Promise(res => {
+        m.querySelector('form').addEventListener('submit', async e => {
+          e.preventDefault(); q('ccErr').hidden = true;
+          const cpf = q('ccCpf').value, fun = q('ccFun').value.trim();
+          if(!API.cpfOk(cpf)) return err('Informe um CPF válido.');
+          if(!fun) return err('Informe a função ou cargo.');
+          if(reg && !q('ccRn').value.trim()) return err('Informe o número do registro profissional.');
+          try {
+            const nu = await API.call('completar_cadastro', { p_cpf: cpf, p_funcao: fun,
+              p_reg_tipo: reg ? q('ccRt').value : null, p_reg_num: reg ? q('ccRn').value.trim() : null });
+            m.remove(); API.toast('Cadastro completo.'); res(nu);
+          } catch(x){ err(x.message); }
+        });
+      });
     },
 
     async sair(){
@@ -86,6 +126,11 @@
     clientes:  ['admin']
   };
   API.PERFIS = PERFIS;
+  API.exigeRegistro = p => ['admin','gestor','tecnico'].includes(p);
+  API.maskCPF = v => { const d=String(v).replace(/\D/g,'').slice(0,11);
+    return d.replace(/^(\d{3})(\d)/,'$1.$2').replace(/^(\d{3})\.(\d{3})(\d)/,'$1.$2.$3').replace(/\.(\d{3})(\d{1,2})$/,'.$1-$2'); };
+  API.cpfOk = v => { const d=String(v).replace(/\D/g,''); if(d.length!==11||/^(\d)\1+$/.test(d)) return false;
+    for(let t=9;t<11;t++){ let s=0; for(let i=0;i<t;i++) s+=+d[i]*(t+1-i); if((s*10)%11%10!==+d[t]) return false; } return true; };
   API.pode = (u, acao) => !!u && (PODE[acao] || []).includes(u.perfil);
 
   /* Avisos rápidos */

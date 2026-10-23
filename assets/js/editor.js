@@ -18,19 +18,19 @@ const svg = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 
 /* ---------- Bibliotecas (genéricas, configuráveis por cliente no sistema final) ---------- */
 const ATIV = [
- {id:'a01',cond:'Operações de içamento',n:'01',icon:'icamento',nome:'Movimentação de cargas com guinchos, guindastes ou plataformas',tipo:'permissao',doc:'Permissão de Içamento',
+ {id:'a01',perg:'A Permissão de Içamento está emitida e aprovada?',orient:'Confira se a Permissão de Içamento (plano de içamento) foi preenchida, analisada e aprovada, se o operador é habilitado e se os acessórios de içamento foram inspecionados. Informe o número da permissão no campo da atividade 01.',seNao:'A atividade não pode ser iniciada.',reqDup:[0],cond:'Operações de içamento',n:'01',icon:'icamento',nome:'Movimentação de cargas com guinchos, guindastes ou plataformas',tipo:'permissao',doc:'Permissão de Içamento',
   regra:'Com carga suspensa, a atividade só pode começar após o preenchimento, análise e aprovação da Permissão de Içamento (plano de içamento). Sem ela, a atividade não pode ser executada.',
   req:['Permissão de Içamento emitida e aprovada','Operador habilitado e acessórios de içamento inspecionados'],riscos:['r_obj','r_esmag','r_atrop']},
  {id:'a02',n:'02',icon:'obra',nome:'Construção civil',tipo:'controle',
   regra:'Seguir o PGR da obra e manter circulação e proteções coletivas da frente de trabalho conforme a NR-18.',
   req:['Proteções coletivas da frente de trabalho instaladas'],riscos:['r_obj','r_mesmo','r_poeira','r_corte']},
- {id:'a03',cond:'Atmosfera inflamável ou explosiva',n:'03',icon:'inflam',nome:'Gases, explosivos e/ou líquidos inflamáveis',tipo:'impeditiva',
+ {id:'a03',perg:'A medição de inflamáveis está dentro do limite definido pela empresa?',orient:'Meça a atmosfera no local imediatamente antes do início, com detector calibrado, e confirme que as fontes de ignição estão controladas.',seNao:'A atividade não pode ser iniciada. Ventile, elimine a fonte e repita a medição.',reqDup:[0],cond:'Atmosfera inflamável ou explosiva',n:'03',icon:'inflam',nome:'Gases, explosivos e/ou líquidos inflamáveis',tipo:'impeditiva',
   regra:'Medir a atmosfera antes do início. Com leitura de inflamáveis acima do limite definido pela empresa, a atividade é impeditiva e não pode ser iniciada.',
   req:['Medição de inflamáveis realizada e dentro do limite','Fontes de ignição controladas'],riscos:['r_incendio','r_quimico']},
  {id:'a04',n:'04',icon:'altura',nome:'Trabalho em altura e/ou sobre telhado',tipo:'controle',trein:'nr35',
   regra:'Trabalho acima de 2 m com risco de queda. Exige trabalhadores capacitados em NR-35, aptos no ASO, sistema de proteção contra quedas e plano de resgate.',
   req:['Sistema de proteção contra quedas e ancoragem inspecionados','Plano de resgate definido e equipamento de resgate no local'],riscos:['r_altura','r_obj','r_escada','r_telhado']},
- {id:'a05',rk:['r_choque','r_arco'],cond:'Circuitos ou superfícies energizadas',n:'05',icon:'energ',nome:'Constatação de circuito ou superfície energizada',tipo:'impeditiva',trein:'nr10',
+ {id:'a05',perg:'A desenergização ou a distância mínima de segurança está garantida?',orient:'Confirme se o circuito foi desenergizado, bloqueado, etiquetado e teve a ausência de tensão constatada com detector, ou se a distância mínima de segurança prevista nas normas pode ser mantida durante toda a atividade.',seNao:'A atividade não pode ser iniciada ou deve ser suspensa imediatamente.',reqDup:[0],rk:['r_choque','r_arco'],cond:'Circuitos ou superfícies energizadas',n:'05',icon:'energ',nome:'Constatação de circuito ou superfície energizada',tipo:'impeditiva',trein:'nr10',
   regra:'Manter o distanciamento mínimo de segurança previsto nas normas. Se não for possível garantir essa distância ou a desenergização, a atividade é impeditiva e deve ser suspensa imediatamente.',
   req:['Circuito desenergizado, bloqueado e etiquetado, ou distância de segurança garantida','Ausência de tensão constatada com detector'],riscos:['r_choque','r_arco']},
  {id:'a06',n:'06',icon:'prox',nome:'Trabalho próximo a área energizada',tipo:'controle',trein:'nr10',
@@ -39,13 +39,13 @@ const ATIV = [
  {id:'a07',n:'07',icon:'quente',nome:'Trabalho a quente',tipo:'controle',
   regra:'Solda, corte ou esmerilhamento. Remover ou proteger combustíveis no entorno e manter extintor e observador de fogo durante e após o trabalho.',
   req:['Combustíveis removidos ou protegidos no entorno','Extintor no local e observador de fogo designado'],riscos:['r_incendio','r_queim','r_fumos','r_particulas','r_radiacao']},
- {id:'a08',rk:['r_atmosfera'],cond:'Trabalho em espaço confinado',n:'08',icon:'confinado',nome:'Espaço confinado',tipo:'permissao',doc:'Permissão de Entrada e Trabalho (PET)',trein:'nr33',
+ {id:'a08',perg:'A Permissão de Entrada e Trabalho (PET) está emitida e liberada?',orient:'Confira se a PET (NR-33) foi preenchida, analisada e liberada pelo supervisor de entrada, com atmosfera avaliada e vigia designado. Informe o número da PET no campo da atividade 08.',seNao:'A entrada no espaço confinado e a atividade não podem ser realizadas.',reqDup:[0],rk:['r_atmosfera'],cond:'Trabalho em espaço confinado',n:'08',icon:'confinado',nome:'Espaço confinado',tipo:'permissao',doc:'Permissão de Entrada e Trabalho (PET)',trein:'nr33',
   regra:'É obrigatório preencher, analisar e liberar a Permissão de Entrada e Trabalho (PET – NR-33). Sem a emissão e autorização dessa permissão, a atividade não pode ser executada.',
   req:['PET emitida e liberada pelo supervisor de entrada','Atmosfera avaliada e vigia designado'],riscos:['r_atmosfera','r_quimico']},
  {id:'a09',n:'09',icon:'escav',nome:'Demolição e escavações',tipo:'controle',
   regra:'Verificar interferências subterrâneas antes de escavar. Escorar ou taludar conforme profundidade e tipo de solo, e isolar a borda da vala.',
   req:['Interferências subterrâneas verificadas','Escoramento ou taludamento executado'],riscos:['r_soterr','r_obj','r_mesmo']},
- {id:'a10',rk:['r_clima'],cond:'Chuva, ventos fortes ou formação de raios',n:'10',icon:'clima',nome:'Intempéries climáticas',tipo:'impeditiva',
+ {id:'a10',perg:'As condições climáticas estão adequadas, sem chuva, ventos fortes ou formação de raios?',orient:'Verifique o tempo no local no momento da liberação e acompanhe durante o trabalho. Trabalho em altura a céu aberto, atividades próximas a rede energizada e içamento de cargas exigem condições adequadas.',seNao:'Essas atividades ficam proibidas e devem ser suspensas. Retome só após nova verificação.',reqDup:[0],rk:['r_clima'],cond:'Chuva, ventos fortes ou formação de raios',n:'10',icon:'clima',nome:'Intempéries climáticas',tipo:'impeditiva',
   regra:'Com chuva, ventos fortes ou formação de raios, ficam proibidos trabalho em altura a céu aberto, atividades próximas a rede energizada e içamento de cargas. Retomar só após nova verificação.',
   req:['Condições climáticas verificadas no momento da liberação'],riscos:['r_clima']}
 ];
@@ -53,9 +53,11 @@ const TIPO = {impeditiva:'Condição impeditiva',permissao:'Exige permissão com
 const TREIN = {nr35:'NR-35',nr10:'NR-10',nr33:'NR-33'};
 
 const RISCOS = [
- ['r_atrop','Atropelamento / tráfego de veículos'],['r_altura','Queda de pessoa com diferença de nível'],
+ ['r_atrop','Atropelamento / tráfego de veículos'],['r_transito','Acidente de trânsito'],['r_furto','Furtos e roubos (assalto)'],
+ ['r_altura','Queda de pessoa com diferença de nível'],
  ['r_mesmo','Queda de mesmo nível (piso escorregadio ou irregular)'],['r_escada','Queda de escada'],
  ['r_telhado','Trabalho sobre telhado ou forro frágil'],['r_obj','Queda de objetos ou materiais'],
+ ['r_batida','Batida contra (estruturas, objetos ou equipamentos)'],
  ['r_choque','Choque elétrico'],['r_arco','Arco elétrico'],['r_incendio','Incêndio ou explosão'],['r_queim','Queimaduras'],
  ['r_atmosfera','Atmosfera perigosa (falta de O₂, gases tóxicos)'],['r_quimico','Exposição a produtos químicos'],
  ['r_poeira','Exposição a poeiras'],['r_fumos','Exposição a fumos metálicos'],['r_ruido','Ruído excessivo'],['r_vibra','Vibração'],
@@ -79,7 +81,10 @@ const MEDIDAS = [
  ['m_animais','Inspecionar o local quanto a animais peçonhentos'],['m_rota','Manter rota de fuga desobstruída'],
  ['m_ergo','Revezar tarefas, usar auxílio mecânico e fazer pausas'],['m_hidrat','Hidratação e pausas em local fresco'],
  ['m_transito','Usar colete refletivo e sinalizar o tráfego'],['m_limpeza','Manter ordem e limpeza'],
- ['m_protmaq','Manter proteções de máquinas e partes móveis'],['m_radio','Manter comunicação entre a equipe (rádio)']
+ ['m_protmaq','Manter proteções de máquinas e partes móveis'],['m_radio','Manter comunicação entre a equipe (rádio)'],
+ ['m_dirigir','Usar cinto de segurança e respeitar as regras de trânsito'],['m_cnh','Condutor habilitado e veículo em boas condições'],
+ ['m_valores','Evitar a exposição de equipamentos e valores'],['m_dupla','Trabalhar em dupla em locais de risco de assalto'],
+ ['m_circ','Atenção à circulação e sinalização de obstáculos']
 ];
 const EPI = [
  ['e_capacete','Capacete com jugular'],['e_oculos','Óculos de segurança incolor'],['e_oculoesc','Óculos de segurança escuro'],
@@ -104,6 +109,9 @@ const EPC = [
 /* risco -> medidas (m), EPI (e) e EPC (c) sugeridos */
 const SUG = {
  r_atrop:{m:['m_transito','m_isolar'],e:['e_colete'],c:['c_cones']},
+ r_transito:{m:['m_dirigir','m_cnh']},
+ r_furto:{m:['m_valores','m_dupla'],c:['c_radio']},
+ r_batida:{m:['m_circ','m_limpeza'],e:['e_capacete','e_calcado']},
  r_altura:{m:['m_inspepi','m_ancor','m_resgate','m_isolar'],e:['e_cinto','e_talY','e_trava','e_capacete'],c:['c_linha','c_resgate']},
  r_mesmo:{m:['m_limpeza'],e:['e_calcado']},
  r_escada:{m:['m_escada'],e:['e_cinto'],c:['c_escada']},
@@ -130,10 +138,11 @@ const SUG = {
  r_clima:{m:['m_clima'],e:['e_capa']},
  r_animais:{m:['m_animais'],e:['e_perneira','e_luvavaq']}
 };
+/* Verificações gerais de condição impeditiva: [chave, pergunta, orientação, se "Não"] */
 const IMP_GERAIS = [
- ['gi_trein','Trabalhador sem treinamento válido ou sem ASO apto para a atividade'],
- ['gi_epi','Falta de EPI, EPC ou ferramenta necessária, ou equipamento danificado'],
- ['gi_mud','Mudança nas condições do local ou da tarefa sem revisão desta APR']
+ ['gi_trein','Todos os trabalhadores têm treinamento e ASO válidos para a atividade?','Confira se cada executante tem os treinamentos exigidos (NR-35, NR-10, NR-33, conforme as atividades marcadas) dentro da validade e ASO apto para a função.','O trabalhador sem treinamento ou ASO válido não pode executar a atividade.'],
+ ['gi_epi','EPI, EPC e ferramentas estão disponíveis e em bom estado?','Confira se todos os equipamentos previstos nesta APR estão no local, inspecionados, sem danos e em uso correto pela equipe.','A atividade não pode ser iniciada até a substituição ou correção.'],
+ ['gi_mud','O local e a tarefa estão iguais ao previsto nesta APR?','Confirme se o local, o método de trabalho, a equipe e as condições do ambiente são os mesmos considerados na análise de riscos.','A APR perde o efeito. Interrompa e emita um novo documento.']
 ];
 const GERAIS = [
  ['g_dds','APR lida e explicada à equipe no local (DDS)'],['g_local','Condições do local conferidas pelo liberador'],
@@ -192,12 +201,12 @@ function novo(){
   return {
     meta:{numero:`APR-PT-${new Date().getFullYear()}-0001`,rev:'00',codigo:'',status:'rascunho',liberadaEm:null,encerradaEm:null,eventos:[],exemplo:false},
     id:{empresa:'',cnpj:'',endEmpresa:END0(),local:'',endLocal:END0(),os:'',servico:'',dataIni:hoje(),dataFim:'',elaboracao:hoje()},
-    ativ:{},outras:'',permNum:{},usarMatriz:true,
+    ativ:{},outras:'',permNum:{},usarMatriz:true,modoEtapas:true,etapas:[],
     riscos:{},riscosExtra:[],impExtra:[],medidas:{},medidaOutra:'',epi:{},epc:{},epiOutro:'',epcOutro:'',
     equipe:[],
     emerg:{planos:[...PLANOS],tel:[{s:'',t:''},{s:'',t:''},{s:'',t:''},{s:'',t:''}],hospitais:[{nome:'',addr:END0(),tel:'',km:'',min:''}]},
-    lib:{req:{},gerais:{},ini:'',fim:'',motivo:'',elaborador:{nome:'',funcao:'',regTipo:'MTE',regNum:'',ass:null,em:null},liberador:{nome:'',funcao:'',cpf:'',ass:null,em:null}},
-    enc:{chk:{},situacao:'concluido',obs:'',resp:{nome:'',ass:null,em:null}}
+    lib:{req:{},gerais:{},ini:'',fim:'',motivo:'',elaborador:{nome:'',funcao:'',cpf:'',regTipo:'MTE',regNum:'',ass:null,em:null},liberador:{nome:'',funcao:'',cpf:'',ass:null,em:null}},
+    enc:{chk:{},situacao:'concluido',obs:'',resp:{nome:'',funcao:'',cpf:'',ass:null,em:null}}
   };
 }
 /* Junta os dados gravados com os valores padrão (campos novos ganham padrão) */
@@ -207,7 +216,12 @@ function mesclar(base, extra){
   return extra===undefined ? base : extra;
 }
 function normalizar(doc){
-  const s = mesclar(novo(), doc.dados || {});
+  const d0 = doc.dados || {};
+  const s = mesclar(novo(), d0);
+  /* Documentos anteriores à versão 3 continuam com a tabela de riscos antiga */
+  if(!('modoEtapas' in d0)) s.modoEtapas = doc.status==='rascunho' && !Object.values(d0.riscos||{}).some(v=>v&&v.on) && !(d0.riscosExtra||[]).length;
+  s.etapas.forEach(e=>{ e.ativ ??= ''; e.passo ??= ''; e.med ??= ''; e.riscos = Array.isArray(e.riscos) ? e.riscos : []; });
+  syncEtapas(s);
   s.equipe.forEach(w=>{ w.trein ??= {}; w.cpf ??= ''; w.mat ??= ''; });
   s.emerg.hospitais.forEach(h=>{ h.addr = mesclar(END0(), h.addr||{}); });
   if(!s.emerg.hospitais.length) s.emerg.hospitais=[{nome:'',addr:END0(),tel:'',km:'',min:''}];
@@ -216,7 +230,7 @@ function normalizar(doc){
   return s;
 }
 let state = null;   /* documento aberto */
-const ED = { id:null, usuario:null, timer:null, salvando:false, pendente:false, onVoltar:null };
+const ED = { id:null, usuario:null, timer:null, salvando:false, pendente:false, onVoltar:null, auto:{} };
 const podeU = acao => API.pode(ED.usuario, acao);
 const somenteLeitura = () => !state || ['encerrada','cancelada'].includes(state.meta.status) || ED.usuario?.perfil==='consulta'
   || (state.meta.status==='rascunho' && !podeU('editar') && !podeU('liberar'));
@@ -229,6 +243,7 @@ let cur = 'ident';
 function saveStatus(txt, err){ const el=$('savest'); if(el){ el.textContent=txt; el.classList.toggle('err',!!err); } }
 function save(){
   if(!state || somenteLeitura()) return;
+  syncEtapas();
   ED.pendente = true; saveStatus('Alterações não salvas');
   clearTimeout(ED.timer); ED.timer = setTimeout(salvarAgora, 1200);
 }
@@ -256,18 +271,46 @@ const evento = txt => state.meta.eventos.push({em:new Date().toISOString(),txt})
 /* ---------- Regras ---------- */
 function nivel(p,s){ if(!p||!s) return null; const n=p*s; const c=n<=3?'baixo':n<=6?'moderado':n<=9?'alto':'critico'; return {n,c,label:{baixo:'Baixo',moderado:'Moderado',alto:'Alto',critico:'Crítico'}[c]}; }
 const ativOn = () => ATIV.filter(a=>state.ativ[a.id]);
-function requisitos(){ const r=[]; ativOn().forEach(a=>a.req.forEach((t,i)=>r.push({key:`${a.id}_${i}`,txt:t,a}))); return r; }
+/* Requisitos que não repetem a pergunta da condição impeditiva (a chave mantém o índice original) */
+const reqDe = a => a.req.map((t,i)=>({i,t})).filter(x=>!(a.reqDup||[]).includes(x.i));
+function requisitos(){ const r=[]; ativOn().forEach(a=>reqDe(a).forEach(x=>r.push({key:`${a.id}_${x.i}`,txt:x.t,a}))); return r; }
 const impPorRisco = a => (a.rk||[]).filter(x=>state.riscos[x]?.on).map(x=>RISCOS.find(y=>y[0]===x)[1]);
 const impAplica = a => !!state.ativ[a.id] || impPorRisco(a).length>0;
 function impedimentos(){
   const L=[];
-  ATIV.filter(a=>a.tipo!=='controle' && impAplica(a)).forEach(a=>L.push({key:a.id,titulo:`Nº ${a.n} – ${a.cond}`,txt:a.regra}));
-  IMP_GERAIS.forEach(([k,t])=>L.push({key:k,titulo:t,txt:''}));
-  state.impExtra.forEach((x,i)=>{ if(tx(x.txt)) L.push({key:'ix_'+i,titulo:x.txt,txt:''}); });
+  ATIV.filter(a=>a.tipo!=='controle' && impAplica(a)).forEach(a=>L.push({key:a.id,titulo:`Nº ${a.n} – ${a.cond}`,perg:a.perg,orient:a.orient,seNao:a.seNao,a}));
+  IMP_GERAIS.forEach(([k,pg,ori,sn])=>L.push({key:k,titulo:'',perg:pg,orient:ori,seNao:sn}));
+  state.impExtra.forEach((x,i)=>{ if(tx(x.txt)) L.push({key:'ix_'+i,titulo:'',perg:tx(x.txt),orient:'',seNao:'A atividade não pode ser iniciada ou deve ser suspensa.'}); });
   return L;
 }
 function treinReq(){ return [...new Set(ativOn().map(a=>a.trein).filter(Boolean))]; }
 const riscosOn = () => RISCOS.filter(r=>state.riscos[r[0]]?.on);
+const MAX_ETAPAS = 15;
+const nomeRisco = r => r.id==='outro' ? (tx(r.nome)||'Outro risco') : (RISCOS.find(x=>x[0]===r.id)||[,''])[1];
+/* No modo etapas, a lista de riscos potenciais é montada a partir das etapas, com o maior nível de cada risco.
+   Assim as sugestões de medidas, as condições impeditivas e a verificação do servidor continuam valendo. */
+function syncEtapas(s=state){
+  if(!s || !s.modoEtapas) return;
+  const rk={}, ex=[];
+  s.etapas.forEach(e=>e.riscos.forEach(r=>{
+    if(r.id==='outro'){ ex.push({nome:tx(r.nome),p:r.p||null,s:r.s||null,medida:tx(e.med).split('\n').map(tx).filter(Boolean).join('; ')}); return; }
+    const o=rk[r.id], n=(r.p||0)*(r.s||0);
+    if(!o) rk[r.id]={on:true,p:r.p||null,s:r.s||null};
+    else if(n>(o.p||0)*(o.s||0)){ o.p=r.p; o.s=r.s; }
+  }));
+  s.riscos=rk; s.riscosExtra=ex; s.usarMatriz=true;
+}
+/* Resumo dos riscos das etapas: maior nível e em quais etapas aparece */
+function resumoRiscos(){
+  const m=new Map();
+  state.etapas.forEach((e,i)=>e.riscos.forEach(r=>{ const nm=nomeRisco(r), nv=nivel(r.p,r.s), k=r.id==='outro'?'o:'+nm.toLowerCase():r.id;
+    const o=m.get(k)||{nome:nm,nv:null,et:[]}; if(nv&&(!o.nv||nv.n>o.nv.n)) o.nv=nv; if(!o.et.includes(i+1)) o.et.push(i+1); m.set(k,o); }));
+  return [...m.values()].sort((a,b)=>(b.nv?.n||0)-(a.nv?.n||0));
+}
+function sugMedidas(e){
+  const t=tx(e.med).toLowerCase();
+  return [...new Set(e.riscos.flatMap(r=>(SUG[r.id]?.m)||[]))].map(id=>(MEDIDAS.find(x=>x[0]===id)||[,''])[1]).filter(n=>n&&!t.includes(n.toLowerCase()));
+}
 function sugeridos(){
   const m=new Set(),e=new Set(),c=new Set();
   riscosOn().forEach(r=>{ const g=SUG[r[0]]||{}; (g.m||[]).forEach(x=>m.add(x)); (g.e||[]).forEach(x=>e.add(x)); (g.c||[]).forEach(x=>c.add(x)); });
@@ -287,6 +330,19 @@ function pend(){
   ativOn().filter(a=>a.tipo==='permissao').forEach(a=>{ if(!(s.permNum[a.id]||'').trim()) add('ativ',`Atividade ${a.n}: informe o nº da ${a.doc}`); });
   if(s.ativ.a10 && (s.ativ.a01||s.ativ.a04||s.ativ.a05||s.ativ.a06)) add('ativ','Intempéries junto com altura, eletricidade ou içamento: interromper se houver chuva, vento ou raios',false);
   const rk = riscosOn();
+  if(s.modoEtapas){
+    if(!s.etapas.length) add('riscos','Inclua ao menos uma etapa na descrição das atividades');
+    s.etapas.forEach((e,i)=>{ const E=`Etapa ${i+1}`;
+      if(!tx(e.ativ)) add('riscos',`${E}: informe a atividade`);
+      if(!tx(e.passo)) add('riscos',`${E}: descreva o passo a passo`);
+      if(!e.riscos.length) add('riscos',`${E}: inclua ao menos um risco`);
+      e.riscos.forEach((r,j)=>{ const nm=nomeRisco(r), nv=nivel(r.p,r.s);
+        if(r.id==='outro'&&!tx(r.nome)) add('riscos',`${E}: descreva o risco ${j+1}`);
+        if(!nv) add('riscos',`${E}: avalie probabilidade e severidade – ${nm}`);
+        else if(nv.c==='critico') add('riscos',`${E}: risco crítico (${nv.n}) – ${nm}. Reforce as medidas e reavalie`);
+        else if(nv.c==='alto') add('riscos',`${E}: risco alto (${nv.n}) – ${nm}`,false); });
+      if(!tx(e.med)) add('riscos',`${E}: informe as medidas preventivas`); });
+  } else {
   if(!rk.length && !s.riscosExtra.length) add('riscos','Selecione ao menos um risco');
   s.riscosExtra.forEach((x,i)=>{ const nm=x.nome.trim()||`Outro risco ${i+1}`, nv=nivel(x.p,x.s);
     if(!x.nome.trim()) add('riscos',`Outro risco ${i+1}: descreva o risco`);
@@ -301,6 +357,7 @@ function pend(){
   rk.forEach(r=>{ const g=SUG[r[0]]; if(!g) return;
     const ok=[...(g.m||[]).map(x=>s.medidas[x]),...(g.e||[]).map(x=>s.epi[x]),...(g.c||[]).map(x=>s.epc[x])].some(Boolean);
     if(!ok) add('medidas',`Sem medida de controle: ${r[1]}`); });
+  }
   if(!Object.values(s.epi).some(Boolean) && !s.epiOutro.trim()) add('medidas','Nenhum EPI selecionado',false);
   const tr = treinReq();
   if(!s.equipe.length) add('equipe','Inclua os trabalhadores executantes');
@@ -316,8 +373,8 @@ function pend(){
   s.emerg.hospitais.forEach((h,i)=>{ if(h.nome.trim()&&!h.tel.trim()) add('emerg',`${h.nome}: informe o telefone do hospital`,false); });
   if(!tx(s.id.endLocal.log)||!tx(s.id.endLocal.cidade)) add('ident','Informe o endereço do local do serviço (origem da rota até o hospital)',false);
   impedimentos().forEach(c=>{ const v=L.imped?.[c.key];
-    if(v==='presente') add('lib',`Condição impeditiva presente: ${c.titulo}. A atividade não pode ser liberada`);
-    else if(v!=='ausente') add('lib',`Verifique a condição impeditiva: ${c.titulo}`); });
+    if(v==='presente') add('lib',`Resposta "Não": ${c.perg} A atividade não pode ser liberada`);
+    else if(v!=='ausente') add('lib',`Responda a verificação: ${c.perg}`); });
   requisitos().forEach(r=>{ if(!L.req[r.key]) add('lib',`Requisito: ${r.txt}`); });
   GERAIS.forEach(g=>{ if(!L.gerais[g[0]]) add('lib',`Verificação: ${g[1]}`); });
   if(!L.ini||!L.fim) add('lib','Defina início e fim da validade da PT');
@@ -327,6 +384,7 @@ function pend(){
     const di=L.ini.slice(0,10);
     if((s.id.dataIni && di<s.id.dataIni) || (s.id.dataFim && di>s.id.dataFim)) add('lib','Início da PT fora do período da APR'); }
   if(!tx(L.elaborador.regNum)) add('lib',`Elaborador da APR: informe o registro ${L.elaborador.regTipo}`);
+  if(tx(L.elaborador.cpf) && !cpfOk(L.elaborador.cpf)) add('lib','Elaborador da APR: CPF inválido');
   if(!tx(L.liberador.cpf)) add('lib','Liberador da PT: informe o CPF');
   else if(!cpfOk(L.liberador.cpf)) add('lib','Liberador da PT: CPF inválido');
   [['elaborador','Elaborador da APR'],['liberador','Liberador da PT']].forEach(([p,lab])=>{ const o=L[p];
@@ -424,24 +482,91 @@ T.ativ = () => {
       <p>${a.regra}</p>
       ${a.tipo==='permissao'?inp(`permNum.${a.id}`,`Nº da ${a.doc}`,{req:1}):''}
       ${a.trein?`<p><b>Treinamento exigido:</b> ${TREIN[a.trein]} para todos os executantes.</p>`:''}
-      <ul>${a.req.map(r=>`<li>${r}</li>`).join('')}</ul>
+      ${reqDe(a).length?`<ul>${reqDe(a).map(x=>`<li>${x.t}</li>`).join('')}</ul>`:''}
     </div>`).join('') : `<div class="empty">Nenhuma atividade crítica marcada. Se o serviço não tiver nenhuma, siga para os riscos.</div>`}
   </section>
 </div>
 <section class="box" style="margin-top:18px"><h2>Condições impeditivas</h2>
-  <p class="hint">Situações em que a atividade não pode ser iniciada ou deve ser suspensa imediatamente. As aplicáveis são verificadas no local, na liberação da PT.</p>
+  <p class="hint">Verificações feitas no local, na liberação da PT. A resposta “Sim” libera; a resposta “Não” impede o início ou exige a suspensão imediata.</p>
   <div class="imgrid">
     ${ATIV.filter(a=>a.tipo!=='controle').map(a=>{ const ap=impAplica(a), pr=impPorRisco(a); return `<div class="imp ${ap?'':'off'}">
-      <div class="hd"><span>Nº ${a.n} – ${a.cond}</span><span class="kind ${ap?'impeditiva':''}">${ap?'Aplicável':'Não aplicável'}</span></div><p>${a.regra}</p>
+      <div class="hd"><span>Nº ${a.n} – ${a.cond}</span><span class="kind ${ap?'impeditiva':''}">${ap?'Aplicável':'Não aplicável'}</span></div><p class="q">${a.perg}</p><p>${a.orient}</p><p><b>Se “Não”:</b> ${a.seNao}</p>
       ${!state.ativ[a.id]&&pr.length?`<p><b style="color:var(--bad)">Aplicável pelo risco marcado:</b> ${pr.join('; ')}</p>`:''}</div>`; }).join('')}
-    ${IMP_GERAIS.map(([k,t])=>`<div class="imp"><div class="hd"><span>${t}</span><span class="kind impeditiva">Sempre aplicável</span></div><p>A atividade não pode ser iniciada, ou deve ser suspensa, enquanto a situação persistir.</p></div>`).join('')}
-    ${state.impExtra.map((x,i)=>`<div class="imp">${inp(`impExtra.${i}.txt`,`Condição impeditiva ${i+1}`,{area:1,rows:2,ph:'Ex.: presença de público não isolado na área'})}<div><button class="btn ghost" data-act="rmImp" data-i="${i}">Remover</button></div></div>`).join('')}
+    ${IMP_GERAIS.map(([k,pg,ori,sn])=>`<div class="imp"><div class="hd"><span>Verificação geral</span><span class="kind impeditiva">Sempre aplicável</span></div><p class="q">${pg}</p><p>${ori}</p><p><b>Se “Não”:</b> ${sn}</p></div>`).join('')}
+    ${state.impExtra.map((x,i)=>`<div class="imp">${inp(`impExtra.${i}.txt`,`Pergunta de verificação ${i+1} (escreva de forma que “Sim” libere o trabalho)`,{area:1,rows:2,ph:'Ex.: A área está isolada e sem circulação de pessoas?'})}<div><button class="btn ghost" data-act="rmImp" data-i="${i}">Remover</button></div></div>`).join('')}
     <button class="addcard" style="min-height:120px" data-act="addImp">+ Incluir condição impeditiva</button>
   </div>
 </section>`;
 };
 
+const optPS = (lbl,v)=>`<option value="">${lbl}</option>`+[1,2,3,4].map(i=>`<option value="${i}" ${v==i?'selected':''}>${lbl[0]} ${i} – ${(lbl[0]==='P'?P_LBL:S_LBL)[i]}</option>`).join('');
+/* Nas etapas o cabeçalho da coluna já diz P ou S: a opção mostra só o número e o nome */
+const optEt = (k,v)=>`<option value="">Escolha</option>`+[1,2,3,4].map(i=>`<option value="${i}" ${v==i?'selected':''}>${i} – ${(k==='P'?P_LBL:S_LBL)[i]}</option>`).join('');
+function matrizHTML(cells){
+  let mx='';
+  for(let s=4;s>=1;s--){ mx += `<div class="ax">${s}</div>`;
+    for(let p=1;p<=4;p++){ const nv=nivel(p,s), list=cells[`${p}${s}`]||[];
+      mx += `<div class="c lv-${nv.c}" title="${esc(list.join('\n')||nv.label)}">${nv.n}${list.length?`<span class="q">${list.length}</span>`:''}</div>`; } }
+  mx += `<div></div>`+[1,2,3,4].map(p=>`<div class="ax">${p}</div>`).join('');
+  return `<div class="mx" style="margin-top:10px">${mx}</div>
+    <div style="display:flex;justify-content:space-between;font:600 12px/1 var(--f-display);color:var(--muted);margin-top:6px;padding-left:32px"><span>← Probabilidade (P) →</span><span>linhas: Severidade (S)</span></div>
+    <div class="legend"><span class="lv lv-baixo">Baixo 1–3</span><span class="lv lv-moderado">Moderado 4–6</span><span class="lv lv-alto">Alto 8–9</span><span class="lv lv-critico">Crítico 12–16</span></div>
+    <div class="cols" style="grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">
+      <div class="scale">${[1,2,3,4].map(i=>`<b>P${i}</b><span>${P_LBL[i]}</span>`).join('')}</div>
+      <div class="scale">${[1,2,3,4].map(i=>`<b>S${i}</b><span>${S_LBL[i]}</span>`).join('')}</div>
+    </div>`;
+}
+
+/* Descrição das atividades por etapa (documentos a partir da versão 3) */
+function riscosEtapas(){
+  const sugA = new Set(ativOn().flatMap(a=>a.riscos)), E = state.etapas;
+  const cells = {}; E.forEach((e,i)=>e.riscos.forEach(r=>{ if(r.p&&r.s){ const k=`${r.p}${r.s}`; (cells[k]=cells[k]||[]).push(`${nomeRisco(r)} (etapa ${i+1})`); } }));
+  const resumo = resumoRiscos();
+  const addSel = (e,i) => { const usados=new Set(e.riscos.map(r=>r.id)), livres=RISCOS.filter(r=>!usados.has(r[0]));
+    const sg=livres.filter(r=>sugA.has(r[0])), out=livres.filter(r=>!sugA.has(r[0]));
+    return `<select id="addRk_${i}" aria-label="Risco para incluir na etapa ${i+1}"><option value="">Escolha um risco…</option>
+      ${sg.length?`<optgroup label="Sugeridos pelas atividades críticas">${sg.map(r=>`<option value="${r[0]}">${esc(r[1])}</option>`).join('')}</optgroup>`:''}
+      <optgroup label="Riscos potenciais">${out.map(r=>`<option value="${r[0]}">${esc(r[1])}</option>`).join('')}</optgroup>
+      <optgroup label="Não está na lista"><option value="outro">Outro risco (descrever)</option></optgroup></select>`; };
+  return `
+<div class="cols w2 etw">
+  <section class="box"><h2>Descrição das atividades</h2>
+    <p class="hint">Divida o serviço em etapas. Em cada etapa, informe os riscos, avalie a probabilidade (P) e a severidade (S) considerando as medidas que serão adotadas, e descreva as medidas preventivas.</p>
+    ${E.map((e,i)=>{ const sg=sugMedidas(e); return `<div class="etapa">
+      <div class="et-hd"><span class="et-n">${i+1}</span><b>Etapa ${i+1}</b><span class="et-t">${esc(tx(e.ativ))}</span>
+        <button type="button" class="btn ghost btn-sm" data-act="upEtapa" data-i="${i}" ${i?'':'disabled'} aria-label="Subir a etapa ${i+1}">↑</button>
+        <button type="button" class="btn ghost btn-sm" data-act="rmEtapa" data-i="${i}">Remover</button></div>
+      <div class="et-bd">
+        ${inp(`etapas.${i}.ativ`,'Atividade',{req:1,ph:'Ex.: Deslocamento até a empresa'})}
+        ${inp(`etapas.${i}.passo`,'Passo a passo',{req:1,area:1,rows:2,ph:'Como a etapa será executada'})}
+        <div class="et-full"><div class="fld"><span>Riscos e avaliação <b class="rq">*</b></span></div>
+          ${e.riscos.length?`<div class="et-rs"><div class="et-rh"><span>Risco</span><span>Probabilidade (P)</span><span>Severidade (S)</span><span>Nível</span><span></span></div>
+          ${e.riscos.map((r,j)=>{ const nv=nivel(r.p,r.s), imA=r.id!=='outro'&&ATIV.find(a=>(a.rk||[]).includes(r.id)); return `<div class="et-r">
+            <div class="et-rn">${r.id==='outro'?inp(`etapas.${i}.riscos.${j}.nome`,'Outro risco',{ph:'Descreva o risco'}):`<b>${esc(nomeRisco(r))}</b>`}${imA?`<small class="et-imp">Ativa a condição impeditiva Nº ${imA.n} – ${esc(imA.cond)}</small>`:''}</div>
+            <label class="et-sel"><small>Probabilidade (P)</small><select id="${fid(`etapas.${i}.riscos.${j}.p`)}" data-k="etapas.${i}.riscos.${j}.p" data-num aria-label="Probabilidade">${optEt('P',r.p)}</select></label>
+            <label class="et-sel"><small>Severidade (S)</small><select id="${fid(`etapas.${i}.riscos.${j}.s`)}" data-k="etapas.${i}.riscos.${j}.s" data-num aria-label="Severidade">${optEt('S',r.s)}</select></label>
+            <span class="lv ${nv?'lv-'+nv.c:''}">${nv?`${nv.label} · ${nv.n}`:'Avaliar'}</span>
+            <button type="button" class="btn ghost btn-sm et-x" data-act="rmRiscoEt" data-i="${i}" data-j="${j}" aria-label="Remover ${esc(nomeRisco(r))}">✕</button></div>`; }).join('')}</div>`
+          :'<div class="empty" style="padding:10px">Nenhum risco nesta etapa.</div>'}
+          <div class="et-add">${addSel(e,i)}<button type="button" class="btn btn-sm" data-act="addRiscoEt" data-i="${i}">+ Adicionar risco</button></div>
+        </div>
+        <div class="et-full">${inp(`etapas.${i}.med`,'Medidas preventivas',{req:1,area:1,rows:3,ph:'Uma medida por linha'})}
+          ${sg.length?`<div class="et-sug"><span>Sugestões:</span>${sg.map(m=>`<button type="button" data-act="sugMed" data-i="${i}" data-m="${esc(m)}">+ ${esc(m)}</button>`).join('')}</div>`:''}</div>
+      </div></div>`; }).join('')}
+    ${E.length<MAX_ETAPAS?`<button type="button" class="btn pri" data-act="addEtapa">+ Adicionar etapa</button>`:`<p class="hint" style="margin:0">Limite de ${MAX_ETAPAS} etapas por documento.</p>`}
+  </section>
+  <section class="stack">
+    <div class="box"><h3>Matriz de risco 4×4</h3>${matrizHTML(cells)}
+      <p class="hint" style="margin:12px 0 0">Cada risco de cada etapa entra na matriz. Risco crítico em qualquer etapa impede a liberação; risco alto aparece como alerta.</p></div>
+    <div class="box"><h3>Riscos potenciais (resumo)</h3><p class="hint">Montado a partir das etapas, com o maior nível de cada risco.</p>
+      ${resumo.length?`<div class="et-res">${resumo.map(r=>`<div><span class="lv ${r.nv?'lv-'+r.nv.c:''}">${r.nv?`${r.nv.label} · ${r.nv.n}`:'—'}</span><span>${esc(r.nome)}<small>Etapa${r.et.length>1?'s':''} ${r.et.join(', ')}</small></span></div>`).join('')}</div>`:'<div class="empty">Os riscos aparecem aqui conforme você inclui nas etapas.</div>'}
+    </div>
+  </section>
+</div>`;
+}
+
 T.riscos = () => {
+  if(state.modoEtapas) return riscosEtapas();
   const sugA = new Set(ativOn().flatMap(a=>a.riscos));
   const cells = {}; [...riscosOn().map(r=>({...state.riscos[r[0]],nome:r[1]})),...state.riscosExtra.map(x=>({...x,nome:x.nome||'Outro risco'}))].forEach(v=>{ if(v.p&&v.s){ const k=`${v.p}${v.s}`; (cells[k]=cells[k]||[]).push(v.nome); } });
   const opt = (lbl,v)=>`<option value="">${lbl}</option>`+[1,2,3,4].map(i=>`<option value="${i}" ${v==i?'selected':''}>${lbl[0]} ${i} – ${(lbl[0]==='P'?P_LBL:S_LBL)[i]}</option>`).join('');
@@ -574,6 +699,38 @@ function actionBar(){
   return `<div class="action"><div class="t"><b>PT encerrada em ${fmtDH(state.meta.encerradaEm)}</b><span>Documento finalizado. Consulte a aba Documento.</span></div></div>`;
 }
 
+/* ---------- Pré-preenchimento com os dados do usuário logado ---------- */
+const MEU = {
+  elaborador: u=>({nome:u.nome,funcao:u.funcao||'',cpf:u.cpf||'',regTipo:u.reg_tipo==='CREA'?'CREA':'MTE',regNum:u.reg_num||''}),
+  liberador:  u=>({nome:u.nome,funcao:u.funcao||'',cpf:u.cpf||''}),
+  resp:       u=>({nome:u.nome,funcao:u.funcao||'',cpf:u.cpf||''})
+};
+const blocoObj = b => b==='resp' ? state.enc.resp : state.lib[b];
+const blocoVazio = o => !tx(o.nome) && !tx(o.funcao) && !tx(o.cpf) && !tx(o.regNum);
+function podeBloco(b){
+  const st=state.meta.status, u=ED.usuario; if(!u || somenteLeitura()) return false;
+  if(b==='elaborador') return st==='rascunho' && podeU('editar') && API.exigeRegistro(u.perfil);
+  if(b==='liberador')  return st==='rascunho' && podeU('liberar');
+  return ['liberada','suspensa'].includes(st) && podeU('encerrar');
+}
+function usarMeusDados(b){
+  const o=blocoObj(b), u=ED.usuario;
+  if(tx(o.nome).toLowerCase()!==tx(u.nome).toLowerCase()){ o.ass=null; o.em=null; }   /* assinatura era de outra pessoa */
+  Object.assign(o, MEU[b](u)); save(); API.toast('Dados preenchidos com o seu cadastro.');
+}
+/* Preenche uma vez por abertura, só blocos totalmente vazios. Depois disso, só pelo botão "Usar meus dados". */
+function preencherAuto(){
+  const u=ED.usuario; if(!u) return; let mud=false;
+  ['elaborador','liberador','resp'].forEach(b=>{
+    if(ED.auto[b] || !podeBloco(b)) return; ED.auto[b]=true;
+    const o=blocoObj(b); if(!blocoVazio(o)) return;
+    if(b==='liberador' && tx(state.lib.elaborador.nome).toLowerCase()===tx(u.nome).toLowerCase()) return;
+    Object.assign(o, MEU[b](u)); mud=true;
+  });
+  if(mud) save();
+}
+const btnMeus = b => podeBloco(b) ? `<button type="button" class="btn ghost btn-sm" data-act="meusDados" data-b="${b}">Usar meus dados</button>` : '';
+
 T.lib = () => {
   const rq = requisitos();
   return `
@@ -581,10 +738,10 @@ T.lib = () => {
   <section class="box"><h2>Conferência para liberação</h2><p class="hint">Itens gerados a partir das atividades críticas marcadas na APR.</p>
     <h3>Condições impeditivas – verificação no local</h3>
     <div class="stack" style="gap:6px">${impedimentos().map(c=>{ const k=`lib.imped.${c.key}`, v=state.lib.imped?.[c.key]||'';
-      return `<div class="impv ${v}"><div class="t"><b>${esc(c.titulo)}</b></div><div class="seg" role="radiogroup" aria-label="${esc(c.titulo)}">
-        <label><input type="radio" name="${fid(k)}" id="${fid(k)}_a" data-k="${k}" value="ausente" ${v==='ausente'?'checked':''}><span>Ausente</span></label>
-        <label class="p"><input type="radio" name="${fid(k)}" id="${fid(k)}_p" data-k="${k}" value="presente" ${v==='presente'?'checked':''}><span>Presente</span></label></div></div>`; }).join('')}</div>
-    <p class="hint" style="margin:8px 0 16px">Qualquer condição presente impede a liberação. Se surgir durante o trabalho, suspenda a PT.</p>
+      return `<div class="impv ${v}"><div class="t">${c.titulo?`<span class="ctit">${esc(c.titulo)}</span>`:''}<b>${esc(c.perg)}</b>${c.orient?`<small>${esc(c.orient)}</small>`:''}${v==='presente'?`<small class="sn"><b>Se “Não”:</b> ${esc(c.seNao)}</small>`:''}</div><div class="seg" role="radiogroup" aria-label="${esc(c.perg)}">
+        <label><input type="radio" name="${fid(k)}" id="${fid(k)}_a" data-k="${k}" value="ausente" ${v==='ausente'?'checked':''}><span>Sim</span></label>
+        <label class="p"><input type="radio" name="${fid(k)}" id="${fid(k)}_p" data-k="${k}" value="presente" ${v==='presente'?'checked':''}><span>Não</span></label></div></div>`; }).join('')}</div>
+    <p class="hint" style="margin:8px 0 16px">Qualquer resposta “Não” impede a liberação. Se a situação mudar durante o trabalho, suspenda a PT.</p>
     <h3>Requisitos das atividades</h3>
     <div class="list">${rq.length?rq.map(r=>chk(`lib.req.${r.key}`,`<b>${r.a.n}</b> · ${r.txt}`)).join(''):'<div class="empty">Nenhuma atividade crítica marcada.</div>'}</div>
     <h3 style="margin-top:16px">Verificações gerais</h3>
@@ -594,13 +751,14 @@ T.lib = () => {
     <div class="box"><h3>Validade da PT (um turno)</h3>
       <div class="form-grid">${inp('lib.ini','Início',{type:'datetime-local',req:1,cls:'c6'})}${inp('lib.fim','Fim',{type:'datetime-local',req:1,cls:'c6'})}</div>
     </div>
-    <div class="box"><h3>Elaborado por</h3>
+    <div class="box"><div class="bh"><h3>Elaborado por</h3>${btnMeus('elaborador')}</div>
       <div class="form-grid">${inp('lib.elaborador.nome','Nome',{req:1,cls:'c6'})}${inp('lib.elaborador.funcao','Função',{cls:'c6',ph:'Técnico ou Engenheiro de Segurança'})}
+        ${inp('lib.elaborador.cpf','CPF',{cls:'c6',mask:'cpf',inputmode:'numeric',ph:'000.000.000-00'})}<div class="c6"></div>
         <label class="fld c4"><span>Registro <b class="rq">*</b></span><select id="f_lib_elaborador_regTipo" data-k="lib.elaborador.regTipo"><option value="MTE" ${state.lib.elaborador.regTipo==='MTE'?'selected':''}>MTE (técnico)</option><option value="CREA" ${state.lib.elaborador.regTipo==='CREA'?'selected':''}>CREA (engenheiro)</option></select></label>
         ${inp('lib.elaborador.regNum',`Nº do registro ${state.lib.elaborador.regTipo}`,{req:1,cls:'c8',ph:state.lib.elaborador.regTipo==='CREA'?'Ex.: 5061234567/SP':'Ex.: SP/012345'})}</div>
       <div style="margin-top:10px">${sigBlock('lib.elaborador.ass','Assinatura do elaborador')}</div>
     </div>
-    <div class="box"><h3>Liberado por</h3>
+    <div class="box"><div class="bh"><h3>Liberado por</h3>${btnMeus('liberador')}</div>
       <div class="form-grid">${inp('lib.liberador.nome','Nome',{req:1,cls:'c6'})}${inp('lib.liberador.funcao','Função',{cls:'c6',ph:'Responsável pela área'})}${inp('lib.liberador.cpf','CPF',{req:1,cls:'c6',mask:'cpf',inputmode:'numeric',ph:'000.000.000-00'})}</div>
       <div style="margin-top:10px">${sigBlock('lib.liberador.ass','Assinatura do liberador')}</div>
     </div>
@@ -610,7 +768,7 @@ T.lib = () => {
 
 T.enc = () => {
   const st = statusVis(), pode = ['liberada','vencida','suspensa'].includes(st) && podeU('encerrar');
-  const ok = ENC.every(x=>state.enc.chk[x[0]]) && state.enc.resp.nome.trim() && state.enc.resp.ass;
+  const ok = ENC.every(x=>state.enc.chk[x[0]]) && state.enc.resp.nome.trim() && cpfOk(state.enc.resp.cpf) && state.enc.resp.ass;
   return `
 ${st==='rascunho'?`<div class="banner warn">O encerramento fica disponível depois que a PT for liberada.</div>`:''}
 ${st==='encerrada'?`<div class="banner ok"><b>PT encerrada em ${fmtDH(state.meta.encerradaEm)}.</b></div>`:''}
@@ -623,14 +781,30 @@ ${st==='encerrada'?`<div class="banner ok"><b>PT encerrada em ${fmtDH(state.meta
       ${inp('enc.obs','Observações',{area:1,rows:3,cls:'c12'})}
     </div>
   </section>
-  <section class="box"><h3>Responsável pelo encerramento</h3>
-    ${inp('enc.resp.nome','Nome',{req:1})}
+  <section class="box"><div class="bh"><h3>Responsável pelo encerramento</h3>${btnMeus('resp')}</div>
+    <div class="form-grid">${inp('enc.resp.nome','Nome',{req:1,cls:'c12'})}${inp('enc.resp.funcao','Função',{cls:'c6'})}${inp('enc.resp.cpf','CPF',{req:1,cls:'c6',mask:'cpf',inputmode:'numeric',ph:'000.000.000-00'})}</div>
     <div style="margin-top:10px">${sigBlock('enc.resp.ass','Assinatura')}</div>
     <div style="margin-top:16px"><button class="btn pri big" data-act="encerrar" ${ok?'':'disabled'}>Encerrar PT</button></div>
-    ${!ok&&pode?`<p class="hint" style="margin:10px 0 0">Marque todos os itens, informe o responsável e assine para encerrar.</p>`:''}
+    ${!ok&&pode?`<p class="hint" style="margin:10px 0 0">Marque todos os itens, informe o responsável (nome e CPF válido) e assine para encerrar.</p>`:''}
   </section>
 </div></fieldset>`;
 };
+
+function docEtapas(){
+  const E=state.etapas, res=resumoRiscos();
+  const rows = E.map((e,i)=>{ const rs=Math.max(1,e.riscos.length), med=tx(e.med).split('\n').map(tx).filter(Boolean).map(m=>`<div>${esc(m)}</div>`).join('');
+    return (e.riscos.length?e.riscos:[null]).map((r,k)=>{ const nv=r&&nivel(r.p,r.s);
+      return `<tr>${k===0?`<td rowspan="${rs}">${i+1} – ${esc(e.ativ)}</td><td rowspan="${rs}" class="just">${esc(e.passo)}</td>`:''}
+        <td>${r?esc(nomeRisco(r)):'—'}</td><td class="ctr">${r&&r.p?P_LBL[r.p]:'—'}</td><td class="ctr">${r&&r.s?S_LBL[r.s]:'—'}</td>
+        <td class="ctr">${nv?`<span class="lvd lv-${nv.c}">${nv.label} (${nv.n})</span>`:'—'}</td>${k===0?`<td rowspan="${rs}">${med||'—'}</td>`:''}</tr>`; }).join(''); }).join('');
+  return `<div class="sh">Descrição das atividades</div>
+  <table class="etd"><tr><th rowspan="2" style="width:15%">Atividade</th><th rowspan="2" style="width:23%">Passo a passo</th><th rowspan="2">Riscos</th><th colspan="3" class="ctr">Avaliação de riscos</th><th rowspan="2" style="width:22%">Medidas preventivas</th></tr>
+    <tr><th class="ctr" style="width:9%">Probabilidade (P)</th><th class="ctr" style="width:9%">Severidade (S)</th><th class="ctr" style="width:10%">Nível</th></tr>
+    ${rows||'<tr><td colspan="7">&nbsp;</td></tr>'}</table>
+  <div class="sh">Riscos potenciais (resumo)</div>
+  <table><tr><th>Risco</th><th class="ctr" style="width:20%">Maior nível</th><th class="ctr" style="width:18%">Etapas</th></tr>
+    ${res.map(r=>`<tr><td>${esc(r.nome)}</td><td class="ctr">${r.nv?`${r.nv.label} (${r.nv.n})`:'—'}</td><td class="ctr">${r.et.join(', ')}</td></tr>`).join('')||'<tr><td colspan="3">&nbsp;</td></tr>'}</table>`;
+}
 
 T.doc = () => {
   const s=state, rk=riscosOn(), x=b=>`<span class="bx">${b?'X':''}</span>`;
@@ -655,17 +829,17 @@ T.doc = () => {
   <div class="ag">${ATIV.map(a=>`<div>${x(s.ativ[a.id])}<span><b>${a.n}</b> ${a.nome}</span></div>`).join('')}</div>
   ${s.outras.trim()?`<div class="pr"><b>Outras situações:</b> ${esc(s.outras)}</div>`:''}
   <div class="sh">Condições impeditivas</div>
-  <table><tr><th>Condição</th><th class="ctr" style="width:16%">Verificação no local</th></tr>
-    ${impedimentos().map(c=>{ const v=s.lib.imped?.[c.key]; const a=ATIV.find(x=>x.id===c.key);
-      return `<tr><td><b>${esc(c.titulo)}${a&&a.tipo==='permissao'?` (${a.doc} nº ${esc(s.permNum[a.id]||'—')})`:''}</b>${c.txt?`<div>${c.txt}</div>`:''}</td><td class="ctr">${v==='ausente'?'<span class="ok">Ausente</span>':v==='presente'?'<b style="color:#c2382c">PRESENTE</b>':'—'}</td></tr>`; }).join('')}
+  <table><tr><th>Verificação no local</th><th class="ctr" style="width:14%">Resposta</th></tr>
+    ${impedimentos().map(c=>{ const v=s.lib.imped?.[c.key]; const a=c.a;
+      return `<tr><td>${c.titulo?`<div class="note">${esc(c.titulo)}${a&&a.tipo==='permissao'?` · ${a.doc} nº ${esc(s.permNum[a.id]||'—')}`:''}</div>`:''}<b>${esc(c.perg)}</b>${c.orient?`<div class="note">${esc(c.orient)} <b>Se “Não”:</b> ${esc(c.seNao)}</div>`:''}</td><td class="ctr">${v==='ausente'?'<span class="ok">Sim</span>':v==='presente'?'<b style="color:#c2382c">NÃO</b>':'—'}</td></tr>`; }).join('')}
   </table>
   ${ativOn().some(a=>a.tipo==='controle')?`<div class="sh">Requisitos das atividades críticas</div><div class="pr">${ativOn().filter(a=>a.tipo==='controle').map(a=>`<p><b>Nº ${a.n} – ${a.nome}:</b> ${a.regra}</p>`).join('')}</div>`:''}
-  <div class="sh">Riscos potenciais</div>
+  ${s.modoEtapas?docEtapas():`<div class="sh">Riscos potenciais</div>
   <table><tr><th>Risco</th>${s.usarMatriz?'<th class="ctr" style="width:9%">P</th><th class="ctr" style="width:9%">S</th><th class="ctr" style="width:16%">Nível</th>':''}</tr>
     ${rk.map(r=>{ const v=s.riscos[r[0]], nv=nivel(v.p,v.s); return `<tr><td>${esc(r[1])}</td>${s.usarMatriz?`<td class="ctr">${v.p||'—'}</td><td class="ctr">${v.s||'—'}</td><td class="ctr">${nv?`${nv.label} (${nv.n})`:'—'}</td>`:''}</tr>`; }).join('')}
     ${s.riscosExtra.map(x=>{ const nv=nivel(x.p,x.s); return `<tr><td>${esc(x.nome)}<div class="note">Medida: ${esc(x.medida)}</div></td>${s.usarMatriz?`<td class="ctr">${x.p||'—'}</td><td class="ctr">${x.s||'—'}</td><td class="ctr">${nv?`${nv.label} (${nv.n})`:'—'}</td>`:''}</tr>`; }).join('')}
-  </table>
-  <div class="sh">Medidas de segurança obrigatórias</div><div class="cl">${sel(MEDIDAS,'medidas')}${s.riscosExtra.filter(x=>(x.medida||'').trim()).map(x=>`<div>☑ ${esc(x.medida)}</div>`).join('')}${s.medidaOutra.trim()?`<div>☑ ${esc(s.medidaOutra)}</div>`:''}</div>
+  </table>`}
+  <div class="sh">Medidas de segurança obrigatórias</div><div class="cl">${sel(MEDIDAS,'medidas')}${(s.modoEtapas?[]:s.riscosExtra).filter(x=>(x.medida||'').trim()).map(x=>`<div>☑ ${esc(x.medida)}</div>`).join('')}${s.medidaOutra.trim()?`<div>☑ ${esc(s.medidaOutra)}</div>`:''}</div>
   <div class="sh">EPI</div><div class="cl">${sel(EPI,'epi')}${s.epiOutro.trim()?`<div>☑ ${esc(s.epiOutro)}</div>`:''}</div>
   <div class="sh">EPC e ferramentas</div><div class="cl">${sel(EPC,'epc')}${s.epcOutro.trim()?`<div>☑ ${esc(s.epcOutro)}</div>`:''}</div>
   <div class="sh">Plano de resposta a emergências</div>
@@ -685,14 +859,14 @@ T.doc = () => {
   <table>
     <tr><th style="width:22%">Validade</th><td colspan="3">${fmtDH(s.lib.ini)} até ${fmtDH(s.lib.fim)} ${s.meta.liberadaEm?` · Liberada em ${fmtDH(s.meta.liberadaEm)}`:''}</td></tr>
     <tr><th>Conferências</th><td colspan="3">${[...requisitos().map(r=>[s.lib.req[r.key],r.txt]),...GERAIS.map(g=>[s.lib.gerais[g[0]],g[1]])].map(([o,t])=>`<div>${o?'<span class="ok">✓</span>':'☐'} ${t}</div>`).join('')}</td></tr>
-    <tr><th>Elaborado por</th><td>${esc(s.lib.elaborador.nome)}<div class="note">${esc(s.lib.elaborador.funcao)}</div>${tx(s.lib.elaborador.regNum)?`<div class="note">Registro ${esc(s.lib.elaborador.regTipo)} nº ${esc(s.lib.elaborador.regNum)}</div>`:''}</td><th style="width:16%">Liberado por</th><td>${esc(s.lib.liberador.nome)}<div class="note">${esc(s.lib.liberador.funcao)}</div>${tx(s.lib.liberador.cpf)?`<div class="note">CPF ${esc(s.lib.liberador.cpf)}</div>`:''}</td></tr>
+    <tr><th>Elaborado por</th><td>${esc(s.lib.elaborador.nome)}<div class="note">${esc(s.lib.elaborador.funcao)}</div>${tx(s.lib.elaborador.cpf)?`<div class="note">CPF ${esc(s.lib.elaborador.cpf)}</div>`:''}${tx(s.lib.elaborador.regNum)?`<div class="note">Registro ${esc(s.lib.elaborador.regTipo)} nº ${esc(s.lib.elaborador.regNum)}</div>`:''}</td><th style="width:16%">Liberado por</th><td>${esc(s.lib.liberador.nome)}<div class="note">${esc(s.lib.liberador.funcao)}</div>${tx(s.lib.liberador.cpf)?`<div class="note">CPF ${esc(s.lib.liberador.cpf)}</div>`:''}</td></tr>
     <tr><th>Assinatura</th><td class="sigtd">${sigImg(s.lib.elaborador.ass,s.lib.elaborador.em)}</td><th>Assinatura</th><td class="sigtd">${sigImg(s.lib.liberador.ass,s.lib.liberador.em)}</td></tr>
   </table>
   <div class="sh">Encerramento</div>
   <table>
     <tr><th style="width:22%">Conferências</th><td colspan="3">${ENC.map(e=>`<div>${s.enc.chk[e[0]]?'<span class="ok">✓</span>':'☐'} ${e[1]}</div>`).join('')}</td></tr>
     <tr><th>Situação</th><td>${s.meta.encerradaEm?(s.enc.situacao==='concluido'?'Concluído':'Não concluído'):'—'}</td><th style="width:16%">Encerrada em</th><td>${fmtDH(s.meta.encerradaEm)}</td></tr>
-    <tr><th>Responsável</th><td>${esc(s.enc.resp.nome)}</td><th>Assinatura</th><td class="sigtd">${sigImg(s.enc.resp.ass,s.enc.resp.em)}</td></tr>
+    <tr><th>Responsável</th><td>${esc(s.enc.resp.nome)}${tx(s.enc.resp.funcao)?`<div class="note">${esc(s.enc.resp.funcao)}</div>`:''}${tx(s.enc.resp.cpf)?`<div class="note">CPF ${esc(s.enc.resp.cpf)}</div>`:''}</td><th>Assinatura</th><td class="sigtd">${sigImg(s.enc.resp.ass,s.enc.resp.em)}</td></tr>
     ${s.enc.obs.trim()?`<tr><th>Observações</th><td colspan="3">${esc(s.enc.obs)}</td></tr>`:''}
   </table>
   <div class="pr decl" style="border-top:1px solid var(--paper-line);margin-top:10px">
@@ -708,6 +882,7 @@ function renderTab(){
   const p=$('panel'), top=p.scrollTop, st=state.meta.status;
   const ro = somenteLeitura();
   const locked = cur!=='doc' && (ro || (st!=='rascunho' && cur!=='enc') || (soLiberacao() && cur!=='lib'));
+  if(cur==='lib' || cur==='enc') preencherAuto();
   let h = '';
   if(cur==='lib') h += actionBar();
   else if(locked && st==='rascunho') h += `<div class="banner"><span>${soLiberacao()?'Seu perfil preenche apenas a aba Liberação da PT. As demais abas ficam para consulta.':'Somente leitura: seu perfil não edita documentos.'}</span></div>`;
@@ -757,6 +932,7 @@ EDROOT.addEventListener('input', e=>{
     const er=el.parentElement.querySelector('.err'); if(er) er.hidden=!bad;
     if(el.dataset.mask==='cep'){ const base=k.replace(/\.cep$/,''), d=v.replace(/\D/g,''); set(k,v); if(d.length===8) buscarCep(base,d); else setSt(base,'Digite o CEP para preencher o endereço, ou preencha à mão.'); renderChrome(); return; } }
   set(k,v);
+  const mt=k.match(/^etapas\.(\d+)\.ativ$/); if(mt){ const t=el.closest('.etapa')?.querySelector('.et-t'); if(t) t.textContent=tx(v); }
   if(el.type==='checkbox' || el.type==='radio' || el.tagName==='SELECT') renderTab(); else renderChrome();
 });
 EDROOT.addEventListener('change', e=>{ const k=e.target.dataset.k||''; const m=k.match(/^emerg\.hospitais\.(\d+)\./);
@@ -779,6 +955,18 @@ EDROOT.addEventListener('click', e=>{
     if(!['log','cidade','cep'].some(k => tx(e[k]))){ API.toast('O cadastro deste cliente ainda não tem endereço. Preencha em Administração → Clientes.','bad'); return; }
     set(base, mesclar(END0(), e)); setSt(base,'Endereço copiado do cadastro do cliente. Ajuste se precisar.'); renderTab(); API.toast('Endereço copiado do cadastro.'); return;
   }
+  if(a==='addEtapa'){ if(state.etapas.length>=MAX_ETAPAS) return; state.etapas.push({ativ:'',passo:'',med:'',riscos:[]}); save(); renderTab();
+    const f=document.getElementById(fid(`etapas.${state.etapas.length-1}.ativ`)); f&&f.focus(); return; }
+  if(a==='rmEtapa'){ const i=+b.dataset.i, e=state.etapas[i], vazia=!tx(e.ativ)&&!tx(e.passo)&&!tx(e.med)&&!e.riscos.length;
+    if(!vazia && armed!=='rmEtapa'+i){ armed='rmEtapa'+i; b.textContent='Confirmar remoção'; setTimeout(()=>{ if(armed==='rmEtapa'+i){ armed=null; b.textContent='Remover'; } },4000); return; }
+    armed=null; state.etapas.splice(i,1); save(); return renderTab(); }
+  if(a==='upEtapa'){ const i=+b.dataset.i; if(i>0){ const E=state.etapas; [E[i-1],E[i]]=[E[i],E[i-1]]; save(); renderTab(); } return; }
+  if(a==='addRiscoEt'){ const i=+b.dataset.i, v=($(`addRk_${i}`)||{}).value; if(!v){ API.toast('Escolha um risco na lista.','bad'); return; }
+    state.etapas[i].riscos.push({id:v,nome:'',p:null,s:null}); save(); renderTab();
+    if(v==='outro'){ const f=document.getElementById(fid(`etapas.${i}.riscos.${state.etapas[i].riscos.length-1}.nome`)); f&&f.focus(); } return; }
+  if(a==='rmRiscoEt'){ state.etapas[+b.dataset.i].riscos.splice(+b.dataset.j,1); save(); return renderTab(); }
+  if(a==='sugMed'){ const e=state.etapas[+b.dataset.i]; e.med=(tx(e.med)?tx(e.med)+'\n':'')+b.dataset.m; save(); return renderTab(); }
+  if(a==='meusDados'){ usarMeusDados(b.dataset.b); return renderTab(); }
   if(a==='addRisco'){ state.riscosExtra.push({nome:'',p:null,s:null,medida:''}); save(); renderTab(); const f=document.getElementById(fid(`riscosExtra.${state.riscosExtra.length-1}.nome`)); f&&f.focus(); return; }
   if(a==='rmRisco'){ state.riscosExtra.splice(+b.dataset.i,1); save(); return renderTab(); }
   if(a==='addHosp'){ state.emerg.hospitais.push({nome:'',addr:END0(),tel:'',km:'',min:''}); save(); renderTab(); const p=$('panel'); p.scrollTop=p.scrollHeight; return; }
@@ -876,7 +1064,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !$('sigModal').
 /* ---------- Abrir documento ---------- */
 window.Editor = {
   async abrir(id, usuario, aba){
-    ED.id = id; ED.usuario = usuario; ED.pendente = false;
+    ED.id = id; ED.usuario = usuario; ED.pendente = false; ED.auto = {};
     const doc = await API.call('obter_documento', { p_id: id });
     state = normalizar(doc);
     cur = TABS.some(t=>t[0]===aba) ? aba : (['liberada','suspensa'].includes(doc.status) ? 'lib' : ['encerrada','cancelada'].includes(doc.status) ? 'doc' : 'ident');

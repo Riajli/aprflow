@@ -61,11 +61,16 @@
   const perfisPermitidos = U.perfil === 'admin' ? Object.keys(API.PERFIS) : Object.keys(API.PERFIS).filter(p => p !== 'admin');
   el('uPerfil').innerHTML = perfisPermitidos.map(p => `<option value="${p}">${API.PERFIS[p]}</option>`).join('');
   el('perfisAjuda').innerHTML = `<b>Perfis:</b> Gestor cadastra usuários e faz tudo na empresa · Técnico elabora a APR · Liberador preenche e libera a PT · Consulta só visualiza.${U.perfil==='admin'?' Administrador da plataforma vê todas as empresas.':''}`;
-  function ajustarCliente(){ el('uClienteF').hidden = U.perfil !== 'admin' || el('uPerfil').value === 'admin'; }
+  function ajustarCliente(){
+    el('uClienteF').hidden = U.perfil !== 'admin' || el('uPerfil').value === 'admin';
+    const reg = API.exigeRegistro(el('uPerfil').value); el('uRtF').hidden = !reg; el('uRnF').hidden = !reg;
+  }
+  el('uCpf').addEventListener('input', () => { const v = API.maskCPF(el('uCpf').value); el('uCpf').value = v; const bad = v.length >= 14 && !API.cpfOk(v); el('uCpf').classList.toggle('invalid', bad); el('uCpfErr').hidden = !bad; });
   el('uPerfil').addEventListener('change', ajustarCliente);
 
   function limparUsuario(){
     el('uId').value=''; el('uNome').value=''; el('uEmail').value=''; el('uSenha').value='';
+    el('uCpf').value=''; el('uFuncao').value=''; el('uRegTipo').value='MTE'; el('uRegNum').value=''; el('uCpf').classList.remove('invalid'); el('uCpfErr').hidden=true;
     el('uPerfil').value='tecnico'; el('uAtivo').checked=true; el('uErro').hidden=true;
     el('uTitulo').textContent='Novo usuário'; el('uSenhaL').innerHTML='Senha inicial <b class="rq">*</b>';
     if(clientes.length) el('uCliente').value = clientes[0].id;
@@ -80,7 +85,7 @@
       }
       usuarios = await API.call('listar_usuarios');
       el('uLista').innerHTML = usuarios.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>Perfil</th>${U.perfil==='admin'?'<th>Cliente</th>':''}<th>Situação</th><th>Último acesso</th></tr></thead><tbody>
-        ${usuarios.map(x => `<tr data-id="${x.id}" tabindex="0"><td><b>${esc(x.nome)}</b><div class="muted">${esc(x.email)}</div></td>
+        ${usuarios.map(x => `<tr data-id="${x.id}" tabindex="0"><td><b>${esc(x.nome)}</b><div class="muted">${esc(x.email)}${x.funcao?' · '+esc(x.funcao):''}</div>${x.pendente&&x.pendente.length?'<div class="muted" style="color:var(--warn)">Cadastro incompleto: '+esc(x.pendente.map(k=>({cpf:'CPF',funcao:'função',registro:'registro'}[k])).join(', '))+'</div>':''}</td>
           <td><span class="pill-perfil">${API.PERFIS[x.perfil]}</span></td>${U.perfil==='admin'?`<td class="muted">${esc(x.cliente_nome||'—')}</td>`:''}
           <td><span class="st ${x.ativo?'liberada':'cancelada'}">${x.ativo?'Ativo':'Inativo'}</span></td><td class="muted">${fmtDH(x.ultimo_acesso)}</td></tr>`).join('')}
         </tbody></table></div>` : '<div class="empty">Nenhum usuário cadastrado.</div>';
@@ -93,6 +98,8 @@
     el('uId').value=x.id; el('uNome').value=x.nome; el('uEmail').value=x.email; el('uSenha').value='';
     if(!perfisPermitidos.includes(x.perfil)){ API.toast('Este usuário só pode ser alterado pelo administrador da plataforma.','bad'); return; }
     el('uPerfil').value=x.perfil; el('uAtivo').checked=x.ativo; if(x.cliente_id) el('uCliente').value=x.cliente_id;
+    el('uCpf').value=x.cpf||''; el('uFuncao').value=x.funcao||''; el('uRegTipo').value=x.reg_tipo==='CREA'?'CREA':'MTE'; el('uRegNum').value=x.reg_num||'';
+    el('uCpf').classList.remove('invalid'); el('uCpfErr').hidden=true;
     el('uTitulo').textContent='Editar usuário'; el('uSenhaL').textContent='Nova senha (deixe em branco para manter)'; el('uErro').hidden=true;
     ajustarCliente(); el('uNome').focus();
   });
@@ -100,8 +107,15 @@
   el('uLimpar').addEventListener('click', limparUsuario);
   el('fUsuario').addEventListener('submit', async e => {
     e.preventDefault(); el('uErro').hidden = true;
+    const erro = t => { el('uErro').textContent = t; el('uErro').hidden = false; };
+    const reg = API.exigeRegistro(el('uPerfil').value);
+    if(!API.cpfOk(el('uCpf').value)) return erro('Informe um CPF válido.');
+    if(!el('uFuncao').value.trim()) return erro('Informe a função ou cargo.');
+    if(reg && !el('uRegNum').value.trim()) return erro('Informe o número do registro profissional (MTE ou CREA).');
     try {
       await API.call('salvar_usuario', {
+        p_cpf: el('uCpf').value, p_funcao: el('uFuncao').value.trim(),
+        p_reg_tipo: reg ? el('uRegTipo').value : null, p_reg_num: reg ? el('uRegNum').value.trim() : null,
         p_id: el('uId').value || null, p_nome: el('uNome').value, p_email: el('uEmail').value,
         p_perfil: el('uPerfil').value, p_cliente_id: U.perfil==='admin' ? (el('uCliente').value || null) : null,
         p_ativo: el('uAtivo').checked, p_senha: el('uSenha').value || null });

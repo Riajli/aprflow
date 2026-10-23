@@ -106,23 +106,54 @@
 
     /* ---------- Condições impeditivas ---------- */
     secao('Condições impeditivas');
-    tabela({ head:[['Condição', { content:'Verificação no local', styles:{ halign:'center' } }]],
-      body: impedimentos().map(c => { const v = s.lib.imped?.[c.key]; const a = ATIV.find(x => x.id === c.key);
-        const tit = T(c.titulo) + (a && a.tipo === 'permissao' ? ` (${T(a.doc)} nº ${T(s.permNum[a.id] || '-')})` : '');
-        return [ { content: tit + (c.txt ? '\n' + T(c.txt) : ''), titulo: tit },
-                 { content: v === 'ausente' ? 'Ausente' : v === 'presente' ? 'PRESENTE' : '-', styles:{ halign:'center', fontStyle:'bold',
+    tabela({ head:[['Verificação no local', { content:'Resposta', styles:{ halign:'center' } }]],
+      body: impedimentos().map(c => { const v = s.lib.imped?.[c.key]; const a = c.a;
+        const tit = c.titulo ? T(c.titulo) + (a && a.tipo === 'permissao' ? ` · ${T(a.doc)} nº ${T(s.permNum[a.id] || '-')}` : '') + '\n' : '';
+        const det = c.orient ? `\n${T(c.orient)} Se "Não": ${T(c.seNao)}` : '';
+        return [ { content: tit + T(c.perg) + det },
+                 { content: v === 'ausente' ? 'Sim' : v === 'presente' ? 'NÃO' : '-', styles:{ halign:'center', fontStyle:'bold',
                    textColor: v === 'ausente' ? COR.verde : v === 'presente' ? COR.verm : COR.tinta } } ]; }),
-      columnStyles:{ 1:{ cellWidth:34 } } });
+      columnStyles:{ 1:{ cellWidth:24 } } });
 
     const ctrl = ativOn().filter(a => a.tipo === 'controle');
     if(ctrl.length){ secao('Requisitos das atividades críticas');
       tabela({ body: ctrl.map(a => [ `Nº ${a.n} - ${T(a.nome)}: ${T(a.regra)}` ]) }); }
 
     /* ---------- Riscos ---------- */
-    secao('Riscos potenciais');
     const mz = s.usarMatriz;
     const nivelTxt = (p, q) => { const nv = nivel(p, q); return nv ? `${nv.label} (${nv.n})` : '-'; };
-    const corNivel = (p, q) => { const nv = nivel(p, q); return nv ? ({ baixo:[207,233,214], moderado:[244,228,161], alto:[246,194,140], critico:[238,154,146] })[nv.c] : null; };
+    const COR_NV = { baixo:[207,233,214], moderado:[244,228,161], alto:[246,194,140], critico:[238,154,146] };
+    const corNivel = (p, q) => { const nv = nivel(p, q); return nv ? COR_NV[nv.c] : null; };
+    if(s.modoEtapas){
+      secao('Descrição das atividades');
+      const ctr = t => ({ content:T(t), styles:{ halign:'center' } });
+      const body = [];
+      s.etapas.forEach((e, i) => {
+        const rs = Math.max(1, e.riscos.length), med = tx(e.med).split('\n').map(tx).filter(Boolean).join('\n') || '-';
+        (e.riscos.length ? e.riscos : [null]).forEach((r, k) => {
+          const linha = [];
+          if(k === 0){ linha.push({ content:`${i+1} - ${T(e.ativ)}`, rowSpan:rs }, { content:T(e.passo), rowSpan:rs }); }
+          linha.push(r ? T(nomeRisco(r)) : '-', ctr(r && r.p ? P_LBL[r.p] : '-'), ctr(r && r.s ? S_LBL[r.s] : '-'),
+            { content: r ? nivelTxt(r.p, r.s) : '-', styles:{ halign:'center', fillColor:(r && corNivel(r.p, r.s)) || [255,255,255] } });
+          if(k === 0) linha.push({ content:T(med), rowSpan:rs });
+          body.push(linha);
+        });
+      });
+      tabela({ head:[
+          [{ content:'Atividade', rowSpan:2 }, { content:'Passo a passo', rowSpan:2 }, { content:'Riscos', rowSpan:2 },
+           { content:'Avaliação de riscos', colSpan:3, styles:{ halign:'center' } }, { content:'Medidas preventivas', rowSpan:2 }],
+          [ctr('Probabilidade (P)'), ctr('Severidade (S)'), ctr('Nível')] ],
+        body: body.length ? body : [[{ content:'Nenhuma etapa descrita', colSpan:7 }]],
+        styles:{ fontSize:7.3, valign:'middle' }, headStyles:{ fontSize:6.8, valign:'middle' }, rowPageBreak:'auto',
+        columnStyles:{ 0:{cellWidth:24}, 1:{cellWidth:38}, 2:{cellWidth:28}, 3:{cellWidth:19}, 4:{cellWidth:17}, 5:{cellWidth:19} } });
+      secao('Riscos potenciais (resumo)');
+      const res = resumoRiscos();
+      tabela({ head:[['Risco', { content:'Maior nível', styles:{halign:'center'} }, { content:'Etapas', styles:{halign:'center'} }]],
+        body: res.length ? res.map(r => [T(r.nome), { content: r.nv ? `${r.nv.label} (${r.nv.n})` : '-', styles:{ halign:'center', fillColor: r.nv ? COR_NV[r.nv.c] : [255,255,255] } }, { content:r.et.join(', '), styles:{ halign:'center' } }])
+          : [[{ content:'Nenhum risco informado', colSpan:3 }]],
+        columnStyles:{ 1:{cellWidth:32}, 2:{cellWidth:28} } });
+    } else {
+    secao('Riscos potenciais');
     const rBody = [
       ...riscosOn().map(r => { const v = s.riscos[r[0]]; return mz ? [T(r[1]), v.p || '-', v.s || '-', { content:nivelTxt(v.p, v.s), styles:{ fillColor: corNivel(v.p, v.s) || [255,255,255] } }] : [T(r[1])]; }),
       ...s.riscosExtra.map(x => { const t = `${T(x.nome)}\nMedida: ${T(x.medida)}`; return mz ? [t, x.p || '-', x.s || '-', { content:nivelTxt(x.p, x.s), styles:{ fillColor: corNivel(x.p, x.s) || [255,255,255] } }] : [t]; })
@@ -130,6 +161,7 @@
     tabela({ head:[ mz ? ['Risco', { content:'P', styles:{halign:'center'} }, { content:'S', styles:{halign:'center'} }, { content:'Nível', styles:{halign:'center'} }] : ['Risco'] ],
       body: rBody.length ? rBody : [[ mz ? { content:'Nenhum risco informado', colSpan:4 } : 'Nenhum risco informado' ]],
       columnStyles: mz ? { 1:{cellWidth:14, halign:'center'}, 2:{cellWidth:14, halign:'center'}, 3:{cellWidth:30, halign:'center'} } : {} });
+    }
 
     /* ---------- Medidas, EPI, EPC ---------- */
     const listaSel = (lista, b) => lista.filter(([id]) => get(`${b}.${id}`)).map(([, n]) => T(n));
@@ -139,7 +171,7 @@
       tabela({ body: b.length ? b : [[{ content:'Nenhum item selecionado', colSpan:3 }]], theme:'plain',
         styles:{ fontSize:7.5, cellPadding:{ top:1, bottom:1, left:2, right:2 } }, tableLineWidth:0.2, tableLineColor:COR.borda,
         columnStyles:{ 0:{cellWidth:CW/3}, 1:{cellWidth:CW/3}, 2:{cellWidth:CW/3} } }); };
-    blocoLista('Medidas de segurança obrigatórias', [...listaSel(MEDIDAS,'medidas'), ...s.riscosExtra.filter(x => tx(x.medida)).map(x => T(x.medida)), ...(tx(s.medidaOutra) ? [T(s.medidaOutra)] : [])]);
+    blocoLista('Medidas de segurança obrigatórias', [...listaSel(MEDIDAS,'medidas'), ...(s.modoEtapas ? [] : s.riscosExtra).filter(x => tx(x.medida)).map(x => T(x.medida)), ...(tx(s.medidaOutra) ? [T(s.medidaOutra)] : [])]);
     blocoLista('EPI', [...listaSel(EPI,'epi'), ...(tx(s.epiOutro) ? [T(s.epiOutro)] : [])]);
     blocoLista('EPC e ferramentas', [...listaSel(EPC,'epc'), ...(tx(s.epcOutro) ? [T(s.epcOutro)] : [])]);
 
@@ -183,7 +215,7 @@
     tabela({ body:[
         [th('Validade'), td(`${fmtDH(L.ini)} até ${fmtDH(L.fim)}${s.meta.liberadaEm ? ' · Liberada em ' + fmtDH(s.meta.liberadaEm) : ''}`, { colSpan:3 })],
         [th('Conferências'), td(conf.map(([ok, t]) => `${ok ? '[X]' : '[  ]'} ${T(t)}`).join('\n'), { colSpan:3 })],
-        [th('Elaborado por'), td(pessoa(L.elaborador, tx(L.elaborador.regNum) ? `Registro ${L.elaborador.regTipo} nº ${L.elaborador.regNum}` : '')),
+        [th('Elaborado por'), td(pessoa(L.elaborador, [tx(L.elaborador.cpf) ? `CPF ${L.elaborador.cpf}` : '', tx(L.elaborador.regNum) ? `Registro ${L.elaborador.regTipo} nº ${L.elaborador.regNum}` : ''].filter(Boolean).join('\n'))),
          th('Liberado por'), td(pessoa(L.liberador, tx(L.liberador.cpf) ? `CPF ${L.liberador.cpf}` : ''))],
         sigRow(L.elaborador, L.liberador)
       ],
@@ -197,7 +229,7 @@
     tabela({ body:[
         [th('Conferências'), td(ENC.map(e => `${E.chk[e[0]] ? '[X]' : '[  ]'} ${T(e[1])}`).join('\n'), { colSpan:3 })],
         [th('Situação'), td(s.meta.encerradaEm ? (E.situacao === 'concluido' ? 'Concluído' : 'Não concluído') : '-'), th('Encerrada em'), td(fmtDH(s.meta.encerradaEm))],
-        [th('Responsável'), td(E.resp.nome), th('Assinatura'), { content:'', sig:E.resp.ass, em:E.resp.em }],
+        [th('Responsável'), td(pessoa(E.resp, tx(E.resp.cpf) ? `CPF ${E.resp.cpf}` : '')), th('Assinatura'), { content:'', sig:E.resp.ass, em:E.resp.em }],
         ...(tx(E.obs) ? [[th('Observações'), td(E.obs, { colSpan:3 })]] : [])
       ],
       columnStyles:{ 0:{cellWidth:28}, 1:{cellWidth:CW/2-28}, 2:{cellWidth:28}, 3:{cellWidth:CW/2-28} },
