@@ -225,7 +225,7 @@ function normalizar(doc){
   s.equipe.forEach(w=>{ w.trein ??= {}; w.cpf ??= ''; w.mat ??= ''; });
   s.emerg.hospitais.forEach(h=>{ h.addr = mesclar(END0(), h.addr||{}); });
   if(!s.emerg.hospitais.length) s.emerg.hospitais=[{nome:'',addr:END0(),tel:'',km:'',min:''}];
-  s.meta = { ...s.meta, numero:doc.numero, status:doc.status, liberadaEm:doc.liberada_em, encerradaEm:doc.encerrada_em,
+  s.meta = { ...s.meta, numero:doc.numero, status:doc.status, liberadaEm:doc.liberada_em, encerradaEm:doc.encerrada_em, suspensaPor:doc.suspensa_por,
              eventos:doc.eventos||[], verif:doc.codigo, cliente:doc.cliente_nome, clienteEnd:doc.cliente_endereco||{} };
   return s;
 }
@@ -235,6 +235,13 @@ const podeU = acao => API.pode(ED.usuario, acao);
 const somenteLeitura = () => !state || ['encerrada','cancelada'].includes(state.meta.status) || ED.usuario?.perfil==='consulta'
   || (state.meta.status==='rascunho' && !podeU('editar') && !podeU('liberar'));
 const soLiberacao = () => state && state.meta.status==='rascunho' && !podeU('editar') && podeU('liberar');
+/* Fases do rascunho: 1) APR sem pendências (abas 01 a 06) → 2) elaborador assina → 3) liberador confere, assina e libera */
+const aprPend = () => pend().filter(p=>p.b && p.tab!=='lib');
+const podeElab = () => !!state && state.meta.status==='rascunho' && podeU('editar') && !somenteLeitura();
+const elabAberto = () => podeElab() && !aprPend().length;
+const elabAssinou = () => !!state.lib.elaborador.ass;
+const libAberta = () => !!state && state.meta.status==='rascunho' && podeU('liberar') && !somenteLeitura() && elabAssinou() && !aprPend().length;
+const podeRetomar = () => podeU('liberar') || (ED.usuario?.perfil==='tecnico' && state.meta.suspensaPor===ED.usuario.id);
 const NO_ARTIFACT = true;
 const mapsDir = (o,d) => `https://www.google.com/maps/dir/?api=1${o?`&origin=${encodeURIComponent(o)}`:''}&destination=${encodeURIComponent(d)}&travelmode=driving`;
 const mapsEmbed = (o,d) => o ? `https://maps.google.com/maps?saddr=${encodeURIComponent(o)}&daddr=${encodeURIComponent(d)}&output=embed` : `https://maps.google.com/maps?q=${encodeURIComponent(d)}&output=embed`;
@@ -264,7 +271,15 @@ async function salvarAgora(){
 }
 window.addEventListener('beforeunload', e=>{ if(ED.pendente){ salvarAgora(); e.preventDefault(); e.returnValue=''; } });
 function get(p){ return p.split('.').reduce((o,k)=>o==null?undefined:o[k], state); }
-function set(p,v){ const ks=p.split('.'); let o=state; for(let i=0;i<ks.length-1;i++){ if(o[ks[i]]==null) o[ks[i]]={}; o=o[ks[i]]; } o[ks[ks.length-1]]=v; save(); }
+function set(p,v){ const ks=p.split('.'); let o=state; for(let i=0;i<ks.length-1;i++){ if(o[ks[i]]==null) o[ks[i]]={}; o=o[ks[i]]; } o[ks[ks.length-1]]=v;
+  if(alteraAPR(p)) invalidarAssElab(); save(); }
+/* Caminhos que fazem parte da APR (abas 01 a 06) ou dos dados do elaborador */
+const alteraAPR = p => !/^(lib|enc)\./.test(p) || (/^lib\.elaborador\./.test(p) && !/\.(ass|em)$/.test(p));
+function invalidarAssElab(){
+  if(!state || state.meta.status!=='rascunho' || !state.lib.elaborador.ass) return;
+  state.lib.elaborador.ass=null; state.lib.elaborador.em=null;
+  API.toast('A APR foi alterada depois da assinatura do elaborador. A assinatura foi removida: confira e assine de novo.','bad');
+}
 const fid = k => 'f_'+k.replace(/\./g,'_');
 const evento = txt => state.meta.eventos.push({em:new Date().toISOString(),txt});
 
@@ -709,10 +724,10 @@ T.emerg = () => {
 
 function actionBar(){
   const P=pend(), b=P.filter(p=>p.b).length, st=statusVis();
-  if(st==='rascunho') return `<div class="action"><div class="t"><b>${b?`${b} pendência(s) impedem a liberação`:'Pronta para liberar'}</b><span>${b?'Resolva os itens em vermelho no resumo. A liberação registra data e hora e bloqueia a edição da APR.':'Ao liberar, a APR fica bloqueada para edição e a PT passa a valer até o fim do turno informado.'}</span></div>${podeU('liberar')?`<button class="btn pri big" data-act="liberar" ${b?'disabled':''}>Liberar PT</button>`:'<span class="hint" style="margin:0">Seu perfil não libera PT. Peça ao liberador.</span>'}
+  if(st==='rascunho') return `<div class="action"><div class="t"><b>${b?`${b} pendência(s) impedem a liberação`:'Pronta para liberar'}</b><span>${b?'Resolva os itens em vermelho no resumo. A liberação registra data e hora e bloqueia a edição da APR.':'Ao liberar, a APR fica bloqueada para edição e a PT passa a valer até o fim do turno informado.'}</span></div>${podeU('liberar')?`<button class="btn pri big" data-act="liberar" ${b||!libAberta()?'disabled':''}>Liberar PT</button>`:'<span class="hint" style="margin:0">Seu perfil não libera PT. A conferência e a liberação são feitas pelo liberador.</span>'}
   ${podeU('editar')?`<details class="cancel" style="flex-basis:100%"><summary class="hint" style="cursor:pointer;margin:0">Cancelar este documento</summary><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><input type="text" id="motivoCancel" placeholder="Motivo do cancelamento" style="flex:1;min-width:200px"><button class="btn" data-act="cancelar">Cancelar documento</button></div></details>`:''}</div>`;
   if(st==='liberada'||st==='vencida') return `<div class="action"><div class="t"><b>${st==='vencida'?'PT vencida':'PT liberada'} em ${fmtDH(state.meta.liberadaEm)}</b><span>Válida até ${fmtDH(state.lib.fim)}. Qualquer integrante pode suspender o trabalho se as condições mudarem.</span></div>${inp('lib.motivo','Motivo da suspensão',{cls:'',ph:'Ex.: início de chuva'})}${podeU('suspender')?'<button class="btn warn" data-act="suspender">Suspender</button>':''}</div>`;
-  if(st==='suspensa') return `<div class="action"><div class="t"><b>PT suspensa</b><span>Confira as condições no local antes de retomar.</span></div>${podeU('liberar')?'<button class="btn pri" data-act="retomar">Retomar trabalho</button>':''}</div>`;
+  if(st==='suspensa') return `<div class="action"><div class="t"><b>PT suspensa</b><span>Confira as condições no local antes de retomar.</span></div>${podeRetomar()?'<button class="btn pri" data-act="retomar">Retomar trabalho</button>':''}</div>`;
   if(st==='cancelada') return `<div class="action"><div class="t"><b>Documento cancelado</b><span>Consulte o motivo no histórico, na aba Documento.</span></div></div>`;
   return `<div class="action"><div class="t"><b>PT encerrada em ${fmtDH(state.meta.encerradaEm)}</b><span>Documento finalizado. Consulte a aba Documento.</span></div></div>`;
 }
@@ -727,8 +742,8 @@ const blocoObj = b => b==='resp' ? state.enc.resp : state.lib[b];
 const blocoVazio = o => !tx(o.nome) && !tx(o.funcao) && !tx(o.cpf) && !tx(o.regNum);
 function podeBloco(b){
   const st=state.meta.status, u=ED.usuario; if(!u || somenteLeitura()) return false;
-  if(b==='elaborador') return st==='rascunho' && podeU('editar') && API.exigeRegistro(u.perfil);
-  if(b==='liberador')  return st==='rascunho' && podeU('liberar');
+  if(b==='elaborador') return elabAberto() && API.exigeRegistro(u.perfil);
+  if(b==='liberador')  return libAberta();
   return ['liberada','suspensa'].includes(st) && podeU('encerrar');
 }
 function usarMeusDados(b){
@@ -750,9 +765,28 @@ function preencherAuto(){
 const btnMeus = b => podeBloco(b) ? `<button type="button" class="btn ghost btn-sm" data-act="meusDados" data-b="${b}">Usar meus dados</button>` : '';
 
 T.lib = () => {
-  const rq = requisitos();
+  const rq = requisitos(), ap = aprPend(), st = state.meta.status, rasc = st==='rascunho';
+  const travaElab = rasc && !elabAberto(), travaLib = rasc && !libAberta();
+  const avisoElab = !rasc ? '' : !podeElab()
+      ? `<div class="banner"><span>O elaborador preenche e assina esta parte.</span></div>`
+      : ap.length ? `<div class="banner warn"><span><b>Resolva ${ap.length} pendência(s) da APR (abas 01 a 06)</b> para preencher e assinar como elaborador.</span></div>`
+      : elabAssinou() ? `<div class="banner ok"><span>APR assinada. Qualquer alteração nas abas 01 a 06 remove esta assinatura.</span></div>` : '';
+  const avisoLib = !rasc ? '' : !podeU('liberar')
+      ? `<div class="banner"><span>A conferência, a validade e a liberação são feitas pelo liberador.</span></div>`
+      : !elabAssinou() || ap.length ? `<div class="banner warn"><span><b>Aguardando o elaborador concluir e assinar a APR.</b> A conferência e a liberação abrem depois da assinatura.</span></div>` : '';
+  const fs = (trava, html) => trava ? `<fieldset disabled>${html}</fieldset>` : html;
   return `
-<div class="cols w2">
+<section class="box" style="margin-bottom:18px"><div class="bh"><h2 style="margin:0">1 · Elaborado por</h2>${btnMeus('elaborador')}</div>
+  ${avisoElab}
+  ${fs(travaElab, `<div class="form-grid">${inp('lib.elaborador.nome','Nome',{req:1,cls:'c4'})}${inp('lib.elaborador.funcao','Função',{cls:'c4',ph:'Técnico ou Engenheiro de Segurança'})}
+    ${inp('lib.elaborador.cpf','CPF',{cls:'c4',mask:'cpf',inputmode:'numeric',ph:'000.000.000-00'})}
+    <label class="fld c4"><span>Registro <b class="rq">*</b></span><select id="f_lib_elaborador_regTipo" data-k="lib.elaborador.regTipo"><option value="MTE" ${state.lib.elaborador.regTipo==='MTE'?'selected':''}>MTE (técnico)</option><option value="CREA" ${state.lib.elaborador.regTipo==='CREA'?'selected':''}>CREA (engenheiro)</option></select></label>
+    ${inp('lib.elaborador.regNum',`Nº do registro ${state.lib.elaborador.regTipo}`,{req:1,cls:'c8',ph:state.lib.elaborador.regTipo==='CREA'?'Ex.: 5061234567/SP':'Ex.: SP/012345'})}</div>
+  <div style="margin-top:10px">${sigBlock('lib.elaborador.ass','Assinatura do elaborador')}</div>`)}
+</section>
+<h2 style="margin:0 0 10px">2 · Liberação da PT</h2>
+${avisoLib}
+${fs(travaLib, `<div class="cols w2">
   <section class="box"><h2>Conferência para liberação</h2><p class="hint">Itens gerados a partir das atividades críticas marcadas na APR.</p>
     <h3>Condições impeditivas – verificação no local</h3>
     <div class="stack" style="gap:6px">${impedimentos().map(c=>{ const k=`lib.imped.${c.key}`, v=state.lib.imped?.[c.key]||'';
@@ -769,19 +803,12 @@ T.lib = () => {
     <div class="box"><h3>Validade da PT (um turno)</h3>
       <div class="form-grid">${inp('lib.ini','Início',{type:'datetime-local',req:1,cls:'c6'})}${inp('lib.fim','Fim',{type:'datetime-local',req:1,cls:'c6'})}</div>
     </div>
-    <div class="box"><div class="bh"><h3>Elaborado por</h3>${btnMeus('elaborador')}</div>
-      <div class="form-grid">${inp('lib.elaborador.nome','Nome',{req:1,cls:'c6'})}${inp('lib.elaborador.funcao','Função',{cls:'c6',ph:'Técnico ou Engenheiro de Segurança'})}
-        ${inp('lib.elaborador.cpf','CPF',{cls:'c6',mask:'cpf',inputmode:'numeric',ph:'000.000.000-00'})}<div class="c6"></div>
-        <label class="fld c4"><span>Registro <b class="rq">*</b></span><select id="f_lib_elaborador_regTipo" data-k="lib.elaborador.regTipo"><option value="MTE" ${state.lib.elaborador.regTipo==='MTE'?'selected':''}>MTE (técnico)</option><option value="CREA" ${state.lib.elaborador.regTipo==='CREA'?'selected':''}>CREA (engenheiro)</option></select></label>
-        ${inp('lib.elaborador.regNum',`Nº do registro ${state.lib.elaborador.regTipo}`,{req:1,cls:'c8',ph:state.lib.elaborador.regTipo==='CREA'?'Ex.: 5061234567/SP':'Ex.: SP/012345'})}</div>
-      <div style="margin-top:10px">${sigBlock('lib.elaborador.ass','Assinatura do elaborador')}</div>
-    </div>
     <div class="box"><div class="bh"><h3>Liberado por</h3>${btnMeus('liberador')}</div>
       <div class="form-grid">${inp('lib.liberador.nome','Nome',{req:1,cls:'c6'})}${inp('lib.liberador.funcao','Função',{cls:'c6',ph:'Responsável pela área'})}${inp('lib.liberador.cpf','CPF',{req:1,cls:'c6',mask:'cpf',inputmode:'numeric',ph:'000.000.000-00'})}</div>
       <div style="margin-top:10px">${sigBlock('lib.liberador.ass','Assinatura do liberador')}</div>
     </div>
   </section>
-</div>`;
+</div>`)}`;
 };
 
 T.enc = () => {
@@ -908,7 +935,7 @@ function renderTab(){
   if(cur==='lib' || cur==='enc') preencherAuto();
   let h = '';
   if(cur==='lib') h += actionBar();
-  else if(locked && st==='rascunho') h += `<div class="banner"><span>${soLiberacao()?'Seu perfil preenche apenas a aba Liberação da PT. As demais abas ficam para consulta.':'Somente leitura: seu perfil não edita documentos.'}</span></div>`;
+  else if(locked && st==='rascunho') h += `<div class="banner"><span>${soLiberacao()?'Somente consulta: o liberador não altera a APR. A conferência e a liberação ficam na aba Liberação da PT, depois da assinatura do elaborador.':'Somente leitura: seu perfil não edita documentos.'}</span></div>`;
   else if(locked && cur!=='enc') h += `<div class="banner ok"><span>PT ${statusVis()} · A APR fica bloqueada para edição. Para alterar, use “Duplicar” e emita um novo documento.</span></div>`;
   h += locked ? `<fieldset disabled>${T[cur]()}</fieldset>` : T[cur]();
   p.innerHTML = h; p.scrollTop = top;
@@ -967,7 +994,8 @@ EDROOT.addEventListener('click', e=>{
   if(a==='tab') return go(b.dataset.tab);
   if(a==='prev'||a==='next'){ const i=TABS.findIndex(t=>t[0]===cur)+(a==='next'?1:-1); if(TABS[i]) go(TABS[i][0]); return; }
   if(a==='pend') return $('side').classList.toggle('open');
-  if(a==='ativ'){ if(somenteLeitura()||soLiberacao()||state.meta.status!=='rascunho') return; state.ativ[b.dataset.id]=!state.ativ[b.dataset.id]; save(); return renderTab(); }
+  if(['sugestoes','addWorker','rmWorker','addImp','rmImp','addRisco','rmRisco','addHosp','rmHosp','addTel','rmTel','addEtapa','upEtapa','addRiscoEt','rmRiscoEt','sugMed'].includes(a) && podeElab()) invalidarAssElab();
+  if(a==='ativ'){ if(somenteLeitura()||soLiberacao()||state.meta.status!=='rascunho') return; state.ativ[b.dataset.id]=!state.ativ[b.dataset.id]; invalidarAssElab(); save(); return renderTab(); }
   if(a==='sugestoes'){ const sg=sugeridos(); sg.m.forEach(x=>state.medidas[x]=true); sg.e.forEach(x=>state.epi[x]=true); sg.c.forEach(x=>state.epc[x]=true); save(); return renderTab(); }
   if(a==='addWorker'){ state.equipe.push({nome:'',funcao:'',cpf:'',mat:'',trein:{},aso:false,ass:null,em:null}); save(); renderTab(); const p=$('panel'); p.scrollTop=p.scrollHeight; return; }
   if(a==='rmWorker'){ state.equipe.splice(+b.dataset.i,1); save(); return renderTab(); }
@@ -982,14 +1010,14 @@ EDROOT.addEventListener('click', e=>{
     const f=document.getElementById(fid(`etapas.${state.etapas.length-1}.ativ`)); f&&f.focus(); return; }
   if(a==='rmEtapa'){ const i=+b.dataset.i, e=state.etapas[i], vazia=!tx(e.ativ)&&!tx(e.passo)&&!tx(e.med)&&!e.riscos.length;
     if(!vazia && armed!=='rmEtapa'+i){ armed='rmEtapa'+i; b.textContent='Confirmar remoção'; setTimeout(()=>{ if(armed==='rmEtapa'+i){ armed=null; b.textContent='Remover'; } },4000); return; }
-    armed=null; state.etapas.splice(i,1); save(); return renderTab(); }
+    armed=null; state.etapas.splice(i,1); invalidarAssElab(); save(); return renderTab(); }
   if(a==='upEtapa'){ const i=+b.dataset.i; if(i>0){ const E=state.etapas; [E[i-1],E[i]]=[E[i],E[i-1]]; save(); renderTab(); } return; }
   if(a==='addRiscoEt'){ const i=+b.dataset.i, v=($(`addRk_${i}`)||{}).value; if(!v){ API.toast('Escolha um risco na lista.','bad'); return; }
     state.etapas[i].riscos.push({id:v,nome:'',p:null,s:null}); save(); renderTab();
     if(v==='outro'){ const f=document.getElementById(fid(`etapas.${i}.riscos.${state.etapas[i].riscos.length-1}.nome`)); f&&f.focus(); } return; }
   if(a==='rmRiscoEt'){ state.etapas[+b.dataset.i].riscos.splice(+b.dataset.j,1); save(); return renderTab(); }
   if(a==='sugMed'){ const e=state.etapas[+b.dataset.i]; e.med=(tx(e.med)?tx(e.med)+'\n':'')+b.dataset.m; save(); return renderTab(); }
-  if(a==='meusDados'){ usarMeusDados(b.dataset.b); return renderTab(); }
+  if(a==='meusDados'){ if(b.dataset.b==='elaborador') invalidarAssElab(); usarMeusDados(b.dataset.b); return renderTab(); }
   if(a==='addRisco'){ state.riscosExtra.push({nome:'',p:null,s:null,medida:''}); save(); renderTab(); const f=document.getElementById(fid(`riscosExtra.${state.riscosExtra.length-1}.nome`)); f&&f.focus(); return; }
   if(a==='rmRisco'){ state.riscosExtra.splice(+b.dataset.i,1); save(); return renderTab(); }
   if(a==='addHosp'){ state.emerg.hospitais.push({nome:'',addr:END0(),tel:'',km:'',min:''}); save(); renderTab(); const p=$('panel'); p.scrollTop=p.scrollHeight; return; }
