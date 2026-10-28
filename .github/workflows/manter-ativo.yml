@@ -1,0 +1,50 @@
+# APRFlow · Mantém o banco do Supabase ativo
+# Duas vezes por dia o GitHub chama o banco (função "ping", que também esvazia a lixeira vencida)
+# e faz uma consulta igual à da página do QR code. Não altera nenhum documento.
+# Para rodar na hora: aba Actions → "Manter Supabase ativo" → Run workflow.
+
+name: Manter Supabase ativo
+
+on:
+  schedule:
+    - cron: "23 12 * * *"   # todo dia, por volta das 9h23 (horário de Brasília)
+    - cron: "51 23 * * *"   # e de novo por volta das 20h51, caso o GitHub pule um horário
+  workflow_dispatch:
+
+permissions:
+  actions: write   # só para manter este agendamento ligado (ver o último passo)
+  contents: read
+
+jobs:
+  sinal:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enviar sinal ao banco
+        env:
+          # mesmos dados públicos que já estão no site (nunca use a chave service_role aqui)
+          SUPABASE_URL: https://ykdbdekrmpketscwsgxg.supabase.co
+          SUPABASE_KEY: sb_publishable_o-dF1MuZF1NnKEq3ZqyUVA_phjIzS5P
+        run: |
+          for tentativa in 1 2 3; do
+            if resposta=$(curl -fsS --max-time 30 -X POST "$SUPABASE_URL/rest/v1/rpc/ping" \
+                 -H "apikey: $SUPABASE_KEY" -H "Content-Type: application/json" -d '{}'); then
+              echo "Banco respondeu: $resposta"
+              # consulta igual à da página de verificação do QR code (código inexistente: só lê, não mostra nada)
+              curl -fsS --max-time 30 -o /dev/null -X POST "$SUPABASE_URL/rest/v1/rpc/verificar_documento" \
+                 -H "apikey: $SUPABASE_KEY" -H "Content-Type: application/json" \
+                 -d '{"p_codigo":"manter-ativo"}' && echo "Consulta de verificação: ok"
+              exit 0
+            fi
+            echo "Tentativa $tentativa falhou. Aguardando 60 s..."
+            sleep 60
+          done
+          echo "O banco não respondeu. Confira se o projeto no Supabase está pausado."
+          exit 1
+
+      # O GitHub desliga agendamentos de repositórios sem alterações há 60 dias.
+      # Este passo reafirma que o agendamento está ligado, sem alterar nenhum arquivo do site.
+      - name: Manter o agendamento ligado
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/manter-ativo.yml/enable" || true
