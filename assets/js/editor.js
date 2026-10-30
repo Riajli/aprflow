@@ -1142,7 +1142,9 @@ const pt = e => { const r=cv.getBoundingClientRect(); return [e.clientX-r.left, 
 cv.addEventListener('pointerdown', e=>{ drawing=true; cv.setPointerCapture(e.pointerId); const [x,y]=pt(e); ctx.strokeStyle='#111'; ctx.lineWidth=2.3; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.beginPath(); ctx.moveTo(x,y); });
 cv.addEventListener('pointermove', e=>{ if(!drawing) return; const [x,y]=pt(e); ctx.lineTo(x,y); ctx.stroke(); drawn=true; });
 ['pointerup','pointercancel','pointerleave'].forEach(t=>cv.addEventListener(t,()=>{ drawing=false; }));
-document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !$('sigModal').hidden) closeSig(); });
+document.addEventListener('keydown', e=>{ if(e.key!=='Escape') return; if(!$('sigModal').hidden) closeSig(); else if(!$('dlg').hidden) $('dlg').hidden=true; });
+/* clique fora da janela também fecha */
+$('dlg').addEventListener('click', e=>{ if(e.target.id==='dlg') $('dlg').hidden=true; });
 
 /* ---------- Abrir documento ---------- */
 window.Editor = {

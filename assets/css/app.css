@@ -575,3 +575,13 @@ ul.det li+li{margin-top:2px}
   .tbtn.sair span{display:none}
   .tbtn.sair{padding:8px 10px}
 }
+
+/* Janela de aviso / matriz: cabe na tela, com botão fechar sempre visível */
+.modal .card.dlg{max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain}
+.dlg-h{display:flex;align-items:center;gap:10px;position:sticky;top:-18px;margin:-18px -18px 0;padding:14px 18px 10px;background:var(--surface);border-bottom:1px solid var(--line);z-index:1}
+.dlg-h h2{flex:1;margin:0;font-size:20px}
+.dlg-x{flex:none;width:36px;height:36px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font:400 24px/1 var(--f-body);color:var(--ink);cursor:pointer}
+.dlg-x:hover{background:var(--surface-2)}
+.dlg .mx{max-width:400px;margin-inline:auto}
+.dlg .mx .c{aspect-ratio:1.6}
+.dlg .acts{position:sticky;bottom:-18px;margin:0 -18px -18px;padding:10px 18px 14px;background:var(--surface);border-top:1px solid var(--line)}
