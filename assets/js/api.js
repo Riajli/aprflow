@@ -126,6 +126,7 @@
     clientes:  ['admin']
   };
   API.PERFIS = PERFIS;
+  API.iniciais = n => { const p=String(n||'').trim().split(/\s+/).filter(w=>w.length>2||/^[A-ZÀ-Ú]/.test(w)); return ((p[0]||'?')[0]+(p.length>1?p[p.length-1][0]:'')).toUpperCase(); };
   API.exigeRegistro = p => ['admin','gestor','tecnico'].includes(p);
   API.maskCPF = v => { const d=String(v).replace(/\D/g,'').slice(0,11);
     return d.replace(/^(\d{3})(\d)/,'$1.$2').replace(/^(\d{3})\.(\d{3})(\d)/,'$1.$2.$3').replace(/\.(\d{3})(\d{1,2})$/,'.$1-$2'); };

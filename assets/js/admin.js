@@ -3,7 +3,8 @@
   const el = id => document.getElementById(id);
   const esc = API.esc;
   const pad = n => String(n).padStart(2,'0');
-  const fmtDH = s => { if(!s) return '—'; const d=new Date(s); return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const FMT_SP = new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+  const fmtDH = s => { if(!s) return '—'; const d=new Date(s); return isNaN(d) ? '—' : FMT_SP.format(d).replace(',', ''); };   /* horário de Brasília */
 
   /* CNPJ XX.XXX.XXX/XXXX-XX (aceita o formato alfanumérico) */
   function maskCNPJ(v){ let c=String(v).toUpperCase().replace(/[^0-9A-Z]/g,''); c=c.slice(0,12)+c.slice(12).replace(/\D/g,''); c=c.slice(0,14);
@@ -39,8 +40,10 @@
   el('whoNome').textContent = U.nome;
   el('whoInfo').textContent = API.PERFIS[U.perfil] + (U.cliente_nome ? ' · ' + U.cliente_nome : '');
   el('bSair').addEventListener('click', () => API.sair());
+  el('whoIni').textContent = API.iniciais(U.nome);
 
   const podeUsuarios = API.pode(U, 'usuarios'), podeClientes = API.pode(U, 'clientes');
+  if(!podeUsuarios) el('lnkAdminT').textContent = 'Minha conta';
   el('tUsuarios').hidden = !podeUsuarios;
   el('tClientes').hidden = !podeClientes;
 

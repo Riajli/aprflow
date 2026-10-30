@@ -11,7 +11,7 @@
     .replace(/≥/g,'>=').replace(/≤/g,'<=').replace(/[^\x00-\xFF]/g,'');
 
   const pad = n => String(n).padStart(2,'0');
-  const agora = () => { const d=new Date(); return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const agora = () => fmtDH(new Date().toISOString()) + ' (horário de Brasília)';
 
   function qrDataURL(texto){
     if(!window.QRCode || !texto) return null;
@@ -102,32 +102,6 @@
     ];
     tabela({ body: rows, columnStyles:{ 0:{cellWidth:34}, 1:{cellWidth:CW/2-34}, 2:{cellWidth:30}, 3:{cellWidth:CW/2-30} } });
 
-    /* ---------- Atividades críticas ---------- */
-    secao('Identificação de atividades críticas e condições especiais');
-    const grade = []; for(let i = 0; i < ATIV.length; i += 5) grade.push(ATIV.slice(i, i+5).map(a => ({ content:`${a.n}  ${T(a.nome)}`, marcado: !!s.ativ[a.id] })));
-    tabela({ body: grade.map(l => l.map(c => ({ content:c.content, marcado:c.marcado }))), styles:{ fontSize:7, cellPadding:{ top:1.6, bottom:1.6, left:6, right:1.4 }, valign:'top' },
-      columnStyles:{ 0:{cellWidth:CW/5}, 1:{cellWidth:CW/5}, 2:{cellWidth:CW/5}, 3:{cellWidth:CW/5}, 4:{cellWidth:CW/5} },
-      didDrawCell: d => { if(d.section !== 'body') return; const raw = d.cell.raw || {}; const bx = d.cell.x + 1.6, by = d.cell.y + 1.7;
-        doc.setDrawColor(...COR.tinta); doc.setLineWidth(0.3); doc.rect(bx, by, 3, 3);
-        if(raw.marcado){ doc.setLineWidth(0.5); doc.line(bx+0.5, by+0.5, bx+2.5, by+2.5); doc.line(bx+2.5, by+0.5, bx+0.5, by+2.5); }
-        doc.setDrawColor(...COR.borda); doc.setLineWidth(0.25); } });
-    if(tx(s.outras)) tabela({ body:[[th('Outras situações'), td(s.outras)]], columnStyles:{ 0:{cellWidth:34} } });
-
-    /* ---------- Condições impeditivas ---------- */
-    secao('Condições impeditivas');
-    tabela({ head:[['Verificação no local', { content:'Resposta', styles:{ halign:'center' } }]],
-      body: impedimentos().map(c => { const v = s.lib.imped?.[c.key]; const a = c.a;
-        const tit = c.titulo ? T(c.titulo) + (a && a.tipo === 'permissao' ? ` · ${T(a.doc)} nº ${T(s.permNum[a.id] || '-')}` : '') + '\n' : '';
-        const det = c.orient ? `\n${T(c.orient)} Se "Não": ${T(c.seNao)}` : '';
-        return [ { content: tit + T(c.perg) + det },
-                 { content: v === 'ausente' ? 'Sim' : v === 'presente' ? 'NÃO' : '-', styles:{ halign:'center', fontStyle:'bold',
-                   textColor: v === 'ausente' ? COR.verde : v === 'presente' ? COR.verm : COR.tinta } } ]; }),
-      columnStyles:{ 1:{ cellWidth:24 } } });
-
-    const ctrl = ativOn().filter(a => a.tipo === 'controle');
-    if(ctrl.length){ secao('Requisitos das atividades críticas');
-      tabela({ body: ctrl.map(a => [ `Nº ${a.n} - ${T(a.nome)}: ${T(a.regra)}` ]) }); }
-
     /* ---------- Riscos ---------- */
     const mz = s.usarMatriz;
     const nivelTxt = (p, q) => { const nv = nivel(p, q); return nv ? `${nv.label} (${nv.n})` : '-'; };
@@ -171,6 +145,33 @@
       body: rBody.length ? rBody : [[ mz ? { content:'Nenhum risco informado', colSpan:4 } : 'Nenhum risco informado' ]],
       columnStyles: mz ? { 1:{cellWidth:14, halign:'center'}, 2:{cellWidth:14, halign:'center'}, 3:{cellWidth:30, halign:'center'} } : {} });
     }
+
+
+    /* ---------- Atividades críticas ---------- */
+    secao('Identificação de atividades críticas e condições especiais');
+    const grade = []; for(let i = 0; i < ATIV.length; i += 5) grade.push(ATIV.slice(i, i+5).map(a => ({ content:`${a.n}  ${T(a.nome)}`, marcado: !!s.ativ[a.id] })));
+    tabela({ body: grade.map(l => l.map(c => ({ content:c.content, marcado:c.marcado }))), styles:{ fontSize:7, cellPadding:{ top:1.6, bottom:1.6, left:6, right:1.4 }, valign:'top' },
+      columnStyles:{ 0:{cellWidth:CW/5}, 1:{cellWidth:CW/5}, 2:{cellWidth:CW/5}, 3:{cellWidth:CW/5}, 4:{cellWidth:CW/5} },
+      didDrawCell: d => { if(d.section !== 'body') return; const raw = d.cell.raw || {}; const bx = d.cell.x + 1.6, by = d.cell.y + 1.7;
+        doc.setDrawColor(...COR.tinta); doc.setLineWidth(0.3); doc.rect(bx, by, 3, 3);
+        if(raw.marcado){ doc.setLineWidth(0.5); doc.line(bx+0.5, by+0.5, bx+2.5, by+2.5); doc.line(bx+2.5, by+0.5, bx+0.5, by+2.5); }
+        doc.setDrawColor(...COR.borda); doc.setLineWidth(0.25); } });
+    if(tx(s.outras)) tabela({ body:[[th('Outras situações'), td(s.outras)]], columnStyles:{ 0:{cellWidth:34} } });
+
+    /* ---------- Condições impeditivas ---------- */
+    secao('Condições impeditivas');
+    tabela({ head:[['Verificação no local', { content:'Resposta', styles:{ halign:'center' } }]],
+      body: impedimentos().map(c => { const v = s.lib.imped?.[c.key]; const a = c.a;
+        const tit = c.titulo ? T(c.titulo) + (a && a.tipo === 'permissao' ? ` · ${T(a.doc)} nº ${T(s.permNum[a.id] || '-')}` : '') + '\n' : '';
+        const det = c.orient ? `\n${T(c.orient)} Se "Não": ${T(c.seNao)}` : '';
+        return [ { content: tit + T(c.perg) + det },
+                 { content: v === 'ausente' ? 'Sim' : v === 'presente' ? 'NÃO' : '-', styles:{ halign:'center', fontStyle:'bold',
+                   textColor: v === 'ausente' ? COR.verde : v === 'presente' ? COR.verm : COR.tinta } } ]; }),
+      columnStyles:{ 1:{ cellWidth:24 } } });
+
+    const ctrl = ativOn().filter(a => a.tipo === 'controle');
+    if(ctrl.length){ secao('Requisitos das atividades críticas');
+      tabela({ body: ctrl.map(a => [ `Nº ${a.n} - ${T(a.nome)}: ${T(a.regra)}` ]) }); }
 
     /* ---------- Medidas, EPI, EPC ---------- */
     const listaSel = (lista, b) => lista.filter(([id]) => get(`${b}.${id}`)).map(([, n]) => T(n));
@@ -222,8 +223,8 @@
     const pessoa = (o, extra) => [T(o.nome), T(o.funcao), extra].filter(tx).join('\n');
     const sigRow = (a, b) => [th('Assinatura'), { content:'', sig:a.ass, em:a.em }, th('Assinatura'), { content:'', sig:b.ass, em:b.em }];
     tabela({ body:[
-        [th('Validade'), td(`${fmtDH(L.ini)} até ${fmtDH(L.fim)}${s.meta.liberadaEm ? ' · Liberada em ' + fmtDH(s.meta.liberadaEm) : ''}`, { colSpan:3 })],
-        [th('Conferências'), td(conf.map(([ok, t]) => `${ok ? '[X]' : '[  ]'} ${T(t)}`).join('\n'), { colSpan:3 })],
+        [th('Validade'), td(validadeTxt(), { colSpan:3 })],
+        [th('Conferências no local'), td(conf.map(([ok, t]) => `${ok ? '[X]' : '[  ]'} ${T(t)}`).join('\n'), { colSpan:3 })],
         [th('Elaborado por'), td(pessoa(L.elaborador, [tx(L.elaborador.cpf) ? `CPF ${L.elaborador.cpf}` : '', tx(L.elaborador.regNum) ? `Registro ${L.elaborador.regTipo} nº ${L.elaborador.regNum}` : ''].filter(Boolean).join('\n'))),
          th('Liberado por'), td(pessoa(L.liberador, tx(L.liberador.cpf) ? `CPF ${L.liberador.cpf}` : ''))],
         sigRow(L.elaborador, L.liberador)

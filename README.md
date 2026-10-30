@@ -136,3 +136,15 @@ Regras:
 - O liberador consulta tudo e não altera a APR. A conferência, a validade, o "Liberado por" e o botão Liberar PT abrem para ele só depois que a APR está sem pendências e o elaborador assinou.
 - O bloco "Elaborado por" só abre quando a APR (abas 01 a 06) está sem pendências. Alterar a APR depois de assinar remove a assinatura do elaborador (na tela e no servidor).
 - O técnico pode suspender, retomar a suspensão que ele mesmo fez e encerrar.
+
+## Versão 4 (quadros numerados, nova ordem das abas, validade de 12 horas)
+
+1. **Supabase → SQL Editor:** rode só `sql/02_funcoes.sql`.
+2. **GitHub:** envie os arquivos alterados para as mesmas pastas: `app.html`, `admin.html` e `verificar.html` na raiz; `assets/css/app.css`; `assets/js/editor.js`, `pdf.js`, `app.js`, `admin.js` e `api.js` em `assets/js`; `sql/02_funcoes.sql` e este README.
+
+Regras:
+- Ordem das abas: Identificação, Riscos, Atividades críticas, Medidas e EPI, Equipe, Emergência, Liberação da PT, Encerramento e Documento.
+- Não há mais data de início e fim da execução. A validade começa no clique em **Liberar PT** e termina 12 horas depois. Todos os horários seguem o horário de Brasília e ficam no histórico.
+- Medidas, EPI e EPC: se os riscos sugerirem itens e nada estiver marcado na lista, aparece uma pendência. Marcar qualquer item resolve.
+- Encerramento com "Não concluído" exige o motivo nas observações.
+- Rascunho ainda sem a assinatura do elaborador pode ser apagado de vez, sem passar pela lixeira. Podem apagar o gestor, o administrador e quem criou o documento.

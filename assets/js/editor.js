@@ -174,7 +174,7 @@ const DECLARACAO = [
 ];
 const P_LBL = ['','Improvável','Pouco provável','Provável','Muito provável'];
 const S_LBL = ['','Leve','Moderada','Grave','Gravíssima'];
-const TABS = [['ident','Identificação'],['ativ','Atividades críticas'],['riscos','Riscos'],['medidas','Medidas e EPI'],['equipe','Equipe'],['emerg','Emergência'],['lib','Liberação da PT'],['enc','Encerramento'],['doc','Documento']];
+const TABS = [['ident','Identificação'],['riscos','Riscos'],['ativ','Atividades críticas'],['medidas','Medidas e EPI'],['equipe','Equipe'],['emerg','Emergência'],['lib','Liberação da PT'],['enc','Encerramento'],['doc','Documento']];
 const PLANOS = [
  'Em caso de emergência, acionar um dos telefones de emergência listados.',
  'Para o resgate da vítima, um trabalhador deve permanecer no local até a chegada dos bombeiros ou socorristas.',
@@ -207,13 +207,17 @@ const pad = n => String(n).padStart(2,'0');
 const hoje = (d=new Date()) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const agoraLocal = (d=new Date()) => `${hoje(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const fmtData = s => { if(!s) return '—'; const [y,m,d]=s.slice(0,10).split('-'); return `${d}/${m}/${y}`; };
-const fmtDH = s => { if(!s) return '—'; const d=new Date(s); return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+/* Datas e horas sempre no horário de Brasília, qualquer que seja o fuso do aparelho */
+const TZ = 'America/Sao_Paulo';
+const FMT_DH = new Intl.DateTimeFormat('pt-BR',{timeZone:TZ,day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+const fmtDH = s => { if(!s) return '—'; const d=new Date(s); return isNaN(d) ? '—' : FMT_DH.format(d).replace(',', ''); };
+const hojeBR = () => new Intl.DateTimeFormat('en-CA',{timeZone:TZ}).format(new Date());
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 function novo(){
   return {
     meta:{numero:`APR-PT-${new Date().getFullYear()}-0001`,rev:'00',codigo:'',status:'rascunho',liberadaEm:null,encerradaEm:null,eventos:[],exemplo:false},
-    id:{empresa:'',cnpj:'',endEmpresa:END0(),cliRazao:'',cliCnpj:'',local:'',endLocal:END0(),os:'',servico:'',dataIni:'',dataFim:'',elaboracao:hoje()},
+    id:{empresa:'',cnpj:'',endEmpresa:END0(),cliRazao:'',cliCnpj:'',local:'',endLocal:END0(),os:'',servico:'',previsao:'',elaboracao:hojeBR()},
     ativ:{},outras:'',permNum:{},usarMatriz:true,modoEtapas:true,etapas:[],
     riscos:{},riscosExtra:[],impExtra:[],medidas:{},medidaOutra:'',epi:{},epc:{},epiOutro:'',epcOutro:'',
     equipe:[],
@@ -238,7 +242,7 @@ function normalizar(doc){
   s.equipe.forEach(w=>{ w.trein ??= {}; w.cpf ??= ''; w.mat ??= ''; });
   s.emerg.hospitais.forEach(h=>{ h.addr = mesclar(END0(), h.addr||{}); });
   if(!s.emerg.hospitais.length) s.emerg.hospitais=[{nome:'',addr:END0(),tel:'',km:'',min:''}];
-  s.meta = { ...s.meta, numero:doc.numero, status:doc.status, liberadaEm:doc.liberada_em, encerradaEm:doc.encerrada_em, suspensaPor:doc.suspensa_por,
+  s.meta = { ...s.meta, numero:doc.numero, status:doc.status, liberadaEm:doc.liberada_em, encerradaEm:doc.encerrada_em, suspensaPor:doc.suspensa_por, validadeIni:doc.validade_ini, validadeFim:doc.validade_fim,
              eventos:doc.eventos||[], verif:doc.codigo, cliente:doc.cliente_nome, clienteEnd:doc.cliente_endereco||{} };
   return s;
 }
@@ -348,51 +352,52 @@ function sugeridos(){
 const endOk = a => !!(a && tx(a.log) && tx(a.cidade));
 function origemRota(s=state){ return endOk(s.id.endLocal) ? fmtEnd(s.id.endLocal,false) : endOk(s.id.endEmpresa) ? fmtEnd(s.id.endEmpresa,false) : ''; }
 const origemTipo = (s=state) => endOk(s.id.endLocal) ? 'local' : endOk(s.id.endEmpresa) ? 'empresa' : '';
-function statusVis(){ const s=state.meta.status; if(s==='cancelada') return s; if(s==='liberada' && state.lib.fim && new Date()>new Date(state.lib.fim)) return 'vencida'; return s; }
+function statusVis(){ const s=state.meta.status, f=state.meta.validadeFim||state.lib.fim; if(s==='cancelada') return s; if(s==='liberada' && f && new Date()>new Date(f)) return 'vencida'; return s; }
 
 function pend(){
-  const P=[], add=(tab,msg,b=true)=>P.push({tab,msg,b}), s=state, L=s.lib;
-  if(!s.id.empresa.trim()) add('ident','Informe a empresa');
-  if(!s.id.cnpj.trim()) add('ident','Informe o CNPJ da empresa');
-  else if(!cnpjOk(s.id.cnpj)) add('ident','CNPJ inválido');
-  if(tx(s.id.cliCnpj) && !cnpjOk(s.id.cliCnpj)) add('ident','Dados da atividade: CNPJ inválido');
-  if(tx(s.id.cliRazao) && !tx(s.id.cliCnpj)) add('ident','Dados da atividade: informe o CNPJ do cliente',false);
-  if(!s.id.servico.trim()) add('ident','Descreva o serviço a ser executado');
-  if(!s.id.dataIni) add('ident','Informe a data inicial da execução');
-  else if(s.id.elaboracao && s.id.dataIni < s.id.elaboracao) add('ident','A execução começa antes da data de elaboração da APR. Confira as datas',false);
-  if(s.id.dataIni && s.id.dataFim && s.id.dataFim < s.id.dataIni) add('ident','Data final anterior à data inicial');
-  ativOn().filter(a=>a.tipo==='permissao').forEach(a=>{ if(!(s.permNum[a.id]||'').trim()) add('ativ',`Atividade ${a.n}: informe o nº da ${a.doc}`); });
-  if(s.ativ.a10 && (s.ativ.a01||s.ativ.a04||s.ativ.a05||s.ativ.a06)) add('ativ','Intempéries junto com altura, eletricidade ou içamento: interromper se houver chuva, vento ou raios',false);
+  const P=[], add=(tab,msg,b=true,q='')=>P.push({tab,msg,b,q}), s=state, L=s.lib;
+  /* 01 Identificação */
+  if(!s.id.servico.trim()) add('ident','Descreva o serviço a ser executado',true,'i1');
+  if(s.id.elaboracao && s.id.elaboracao > hojeBR()) add('ident','A data de elaboração da APR não pode ser no futuro',true,'i1');
+  if(!s.id.empresa.trim()) add('ident','Informe a razão social da empresa executante',true,'i3');
+  if(!s.id.cnpj.trim()) add('ident','Informe o CNPJ da empresa executante',true,'i3');
+  else if(!cnpjOk(s.id.cnpj)) add('ident','CNPJ da empresa executante inválido',true,'i3');
+  if(tx(s.id.cliCnpj) && !cnpjOk(s.id.cliCnpj)) add('ident','Dados da atividade: CNPJ inválido',true,'i4');
+  if(tx(s.id.cliRazao) && !tx(s.id.cliCnpj)) add('ident','Dados da atividade: informe o CNPJ do cliente',false,'i4');
+  if(!origemRota()) add('ident','Informe o endereço do local do serviço ou da empresa (origem da rota até o hospital)',false,'i4');
+  /* 02 Riscos */
   const rk = riscosOn();
   if(s.modoEtapas){
-    if(!s.etapas.length) add('riscos','Inclua ao menos uma etapa na descrição das atividades');
+    if(!s.etapas.length) add('riscos','Inclua ao menos uma etapa na descrição das atividades',true,'r1');
     s.etapas.forEach((e,i)=>{ const E=`Etapa ${i+1}`;
-      if(!tx(e.ativ)) add('riscos',`${E}: informe a atividade`);
-      if(!tx(e.passo)) add('riscos',`${E}: descreva o passo a passo`);
-      if(!e.riscos.length) add('riscos',`${E}: inclua ao menos um risco`);
+      if(!tx(e.ativ)) add('riscos',`${E}: informe a atividade`,true,'r1');
+      if(!tx(e.passo)) add('riscos',`${E}: descreva o passo a passo`,true,'r1');
+      if(!e.riscos.length) add('riscos',`${E}: inclua ao menos um risco`,true,'r1');
       e.riscos.forEach((r,j)=>{ const nm=nomeRisco(r), nv=nivel(r.p,r.s);
-        if(r.id==='outro'&&!tx(r.nome)) add('riscos',`${E}: descreva o risco ${j+1}`);
-        if(!nv) add('riscos',`${E}: avalie probabilidade e severidade – ${nm}`);
-        else if(nv.c==='critico') add('riscos',`${E}: risco crítico (${nv.n}) – ${nm}. Reforce as medidas e reavalie`);
-        else if(nv.c==='alto') add('riscos',`${E}: risco alto (${nv.n}) – ${nm}`,false); });
-      if(!tx(e.med)) add('riscos',`${E}: informe as medidas preventivas`); });
+        if(r.id==='outro'&&!tx(r.nome)) add('riscos',`${E}: descreva o risco ${j+1}`,true,'r1');
+        if(!nv) add('riscos',`${E}: avalie probabilidade e severidade – ${nm}`,true,'r1');
+        else if(nv.c==='critico') add('riscos',`${E}: risco crítico (${nv.n}) – ${nm}. Reforce as medidas e reavalie`,true,'r1');
+        else if(nv.c==='alto') add('riscos',`${E}: risco alto (${nv.n}) – ${nm}`,false,'r1'); });
+      if(!tx(e.med)) add('riscos',`${E}: informe as medidas preventivas`,true,'r1'); });
   } else {
-  if(!rk.length && !s.riscosExtra.length) add('riscos','Selecione ao menos um risco');
-  s.riscosExtra.forEach((x,i)=>{ const nm=x.nome.trim()||`Outro risco ${i+1}`, nv=nivel(x.p,x.s);
-    if(!x.nome.trim()) add('riscos',`Outro risco ${i+1}: descreva o risco`);
-    if(s.usarMatriz){ if(!nv) add('riscos',`Avalie probabilidade e severidade: ${nm}`);
-      else if(nv.c==='critico') add('riscos',`Risco crítico (${nv.n}): ${nm}. Reforce as medidas e reavalie`);
-      else if(nv.c==='alto') add('riscos',`Risco alto (${nv.n}): ${nm}`,false); }
-    if(!(x.medida||'').trim()) add('riscos',`Sem medida de controle: ${nm}`); });
-  if(s.usarMatriz) rk.forEach(r=>{ const v=s.riscos[r[0]], nv=nivel(v.p,v.s);
-    if(!nv) add('riscos',`Avalie probabilidade e severidade: ${r[1]}`);
-    else if(nv.c==='critico') add('riscos',`Risco crítico (${nv.n}): ${r[1]}. Reforce as medidas e reavalie`);
-    else if(nv.c==='alto') add('riscos',`Risco alto (${nv.n}): ${r[1]}`,false); });
-  rk.forEach(r=>{ const g=SUG[r[0]]; if(!g) return;
-    const ok=[...(g.m||[]).map(x=>s.medidas[x]),...(g.e||[]).map(x=>s.epi[x]),...(g.c||[]).map(x=>s.epc[x])].some(Boolean);
-    if(!ok) add('medidas',`Sem medida de controle: ${r[1]}`); });
+    if(!rk.length && !s.riscosExtra.length) add('riscos','Selecione ao menos um risco');
+    s.riscosExtra.forEach((x,i)=>{ const nm=x.nome.trim()||`Outro risco ${i+1}`, nv=nivel(x.p,x.s);
+      if(!x.nome.trim()) add('riscos',`Outro risco ${i+1}: descreva o risco`);
+      if(s.usarMatriz){ if(!nv) add('riscos',`Avalie probabilidade e severidade: ${nm}`);
+        else if(nv.c==='critico') add('riscos',`Risco crítico (${nv.n}): ${nm}. Reforce as medidas e reavalie`); }
+      if(!(x.medida||'').trim()) add('riscos',`Sem medida de controle: ${nm}`); });
+    if(s.usarMatriz) rk.forEach(r=>{ const v=s.riscos[r[0]], nv=nivel(v.p,v.s);
+      if(!nv) add('riscos',`Avalie probabilidade e severidade: ${r[1]}`);
+      else if(nv.c==='critico') add('riscos',`Risco crítico (${nv.n}): ${r[1]}. Reforce as medidas e reavalie`); });
   }
-  if(!Object.values(s.epi).some(Boolean) && !s.epiOutro.trim()) add('medidas','Nenhum EPI selecionado',false);
+  /* 03 Atividades críticas */
+  ativOn().filter(a=>a.tipo==='permissao').forEach(a=>{ if(!(s.permNum[a.id]||'').trim()) add('ativ',`Atividade ${a.n}: informe o nº da ${a.doc}`,true,'a1'); });
+  if(s.ativ.a10 && (s.ativ.a01||s.ativ.a04||s.ativ.a05||s.ativ.a06)) add('ativ','Intempéries junto com altura, eletricidade ou içamento: interromper se houver chuva, vento ou raios',false,'a1');
+  /* 04 Medidas e EPI: se os riscos sugerem itens, ao menos um item da lista deve ser marcado */
+  const sg = sugeridos();
+  [['m','medidas',MEDIDAS,'Marque ao menos uma medida de segurança','m2'],['e','epi',EPI,'Marque ao menos um EPI','m3'],['c','epc',EPC,'Marque ao menos um EPC ou ferramenta','m4']].forEach(([k,base,list,msg,q])=>{
+    if(sg[k].size && !list.some(([id])=>s[base][id])) add('medidas',msg,true,q); });
+  /* 05 Equipe */
   const tr = treinReq();
   if(!s.equipe.length) add('equipe','Inclua os trabalhadores executantes');
   s.equipe.forEach((w,i)=>{ const nm=w.nome.trim()||`Trabalhador ${i+1}`;
@@ -403,31 +408,42 @@ function pend(){
     tr.forEach(t=>{ if(!w.trein?.[t]) add('equipe',`${nm}: sem treinamento ${TREIN[t]} válido`); });
     if(!w.aso) add('equipe',`${nm}: ASO apto não confirmado`);
     if(!w.ass) add('equipe',`${nm}: falta assinatura de ciência`); });
+  /* 06 Emergência */
   if(!s.emerg.tel.some(t=>t.t.trim())) add('emerg','Informe ao menos um telefone de emergência do local');
   if(!s.emerg.hospitais.some(h=>tx(h.nome)&&tx(h.addr.log)&&tx(h.addr.cidade))) add('emerg','Informe ao menos um hospital de referência com endereço (logradouro e cidade)');
-  s.emerg.hospitais.forEach((h,i)=>{ if(h.nome.trim()&&!h.tel.trim()) add('emerg',`${h.nome}: informe o telefone do hospital`,false); });
-  if(!origemRota()) add('ident','Informe o endereço do local do serviço ou da empresa (origem da rota até o hospital)',false);
+  s.emerg.hospitais.forEach(h=>{ if(h.nome.trim()&&!h.tel.trim()) add('emerg',`${h.nome}: informe o telefone do hospital`,false); });
+  /* 07 Liberação */
+  if(!tx(L.elaborador.nome)) add('lib','Elaborador da APR: informe o nome',true,'l1');
+  if(!tx(L.elaborador.regNum)) add('lib',`Elaborador da APR: informe o registro ${L.elaborador.regTipo}`,true,'l1');
+  if(tx(L.elaborador.cpf) && !cpfOk(L.elaborador.cpf)) add('lib','Elaborador da APR: CPF inválido',true,'l1');
+  if(!L.elaborador.ass) add('lib','Elaborador da APR: falta assinatura',true,'l1');
   impedimentos().forEach(c=>{ const v=L.imped?.[c.key];
-    if(v==='presente') add('lib',`Resposta "Não": ${c.perg} A atividade não pode ser liberada`);
-    else if(v!=='ausente') add('lib',`Responda a verificação: ${c.perg}`); });
-  requisitos().forEach(r=>{ if(!L.req[r.key]) add('lib',`Requisito: ${r.txt}`); });
-  GERAIS.forEach(g=>{ if(!L.gerais[g[0]]) add('lib',`Verificação: ${g[1]}`); });
-  if(!L.ini||!L.fim) add('lib','Defina início e fim da validade da PT');
-  else { const h=(new Date(L.fim)-new Date(L.ini))/36e5;
-    if(h<=0) add('lib','O fim da validade deve ser depois do início');
-    else if(h>12) add('lib','A PT vale por um turno (máximo 12 h)');
-    const di=L.ini.slice(0,10);
-    if((s.id.dataIni && di<s.id.dataIni) || (s.id.dataFim && di>s.id.dataFim)) add('lib','Início da PT fora do período da APR'); }
-  if(!tx(L.elaborador.regNum)) add('lib',`Elaborador da APR: informe o registro ${L.elaborador.regTipo}`);
-  if(tx(L.elaborador.cpf) && !cpfOk(L.elaborador.cpf)) add('lib','Elaborador da APR: CPF inválido');
-  if(!tx(L.liberador.cpf)) add('lib','Liberador da PT: informe o CPF');
-  else if(!cpfOk(L.liberador.cpf)) add('lib','Liberador da PT: CPF inválido');
-  [['elaborador','Elaborador da APR'],['liberador','Liberador da PT']].forEach(([p,lab])=>{ const o=L[p];
-    if(!o.nome.trim()) add('lib',`${lab}: informe o nome`);
-    if(!o.ass) add('lib',`${lab}: falta assinatura`); });
-  if(L.elaborador.nome.trim() && L.elaborador.nome.trim().toLowerCase()===L.liberador.nome.trim().toLowerCase()) add('lib','Elaborador e liberador são a mesma pessoa',false);
+    if(v==='presente') add('lib',`Resposta "Não": ${c.perg} A atividade não pode ser liberada`,true,'l2');
+    else if(v!=='ausente') add('lib',`Responda a verificação: ${c.perg}`,true,'l2'); });
+  requisitos().forEach(r=>{ if(!L.req[r.key]) add('lib',`Requisito: ${r.txt}`,true,'l3'); });
+  GERAIS.forEach(g=>{ if(!L.gerais[g[0]]) add('lib',`Conferência no local: ${g[1]}`,true,'l3'); });
+  if(!tx(L.liberador.nome)) add('lib','Liberador da PT: informe o nome',true,'l5');
+  if(!tx(L.liberador.cpf)) add('lib','Liberador da PT: informe o CPF',true,'l5');
+  else if(!cpfOk(L.liberador.cpf)) add('lib','Liberador da PT: CPF inválido',true,'l5');
+  if(!L.liberador.ass) add('lib','Liberador da PT: falta assinatura',true,'l5');
+  if(tx(L.elaborador.nome) && tx(L.elaborador.nome).toLowerCase()===tx(L.liberador.nome).toLowerCase()) add('lib','Elaborador e liberador são a mesma pessoa',false,'l5');
   return P;
 }
+/* Pendências do encerramento (aba 08) */
+function pendEnc(){
+  const P=[], add=(msg,q)=>P.push({tab:'enc',msg,b:true,q}), E=state.enc;
+  ENC.forEach(x=>{ if(!E.chk[x[0]]) add(`Conferência final: ${x[1]}`,'e1'); });
+  if(E.situacao==='nao' && !tx(E.obs)) add('Informe nas observações o motivo de o serviço não ter sido concluído','e2');
+  if(!tx(E.resp.nome)) add('Responsável pelo encerramento: informe o nome','e3');
+  if(!cpfOk(E.resp.cpf)) add('Responsável pelo encerramento: informe um CPF válido','e3');
+  if(!E.resp.ass) add('Responsável pelo encerramento: falta assinatura','e3');
+  return P;
+}
+/* Quadro numerado com sinal de completo/pendência */
+function qStatus(q){ const P=[...(ED.P||[]),...(ED.PE||[])].filter(p=>p.q===q), b=P.filter(p=>p.b).length, w=P.length-b;
+  return `<span data-qs="${q}" class="qs ${b?'pd':w?'wa':'ok'}">${b?`${b} pendência${b>1?'s':''}`:w?`${w} alerta${w>1?'s':''}`:'✓ Completo'}</span>`; }
+function quadro(n,titulo,q,corpo,o={}){
+  return `<section class="box qd"${o.id?` id="${o.id}"`:''}><div class="qh">${n?`<span class="qn">${n}</span>`:''}<h2 class="qt">${titulo}</h2>${o.acoes||''}${q?qStatus(q):''}</div>${corpo}</section>`; }
 
 /* ---------- Helpers de formulário ---------- */
 function inp(k,label,o={}){
@@ -474,76 +490,60 @@ async function buscarCep(base,cep){
 
 /* ---------- Abas ---------- */
 const T = {};
-T.ident = () => `
-<div class="cols w2">
-  <section class="box"><h2>Identificação</h2><p class="hint">A APR pode ser elaborada dias antes. A conferência e as assinaturas da PT são feitas no dia da execução, e cada liberação vale por um turno dentro do período.</p>
+T.ident = () =>
+  quadro(1,'Identificação','i1',`<p class="hint">A APR pode ser elaborada dias antes. A data e o horário reais da execução são os da liberação da PT, no dia do trabalho.</p>
     <div class="form-grid">
       ${inp('id.servico','Serviço a ser executado',{req:1,area:1,rows:3,cls:'c12'})}
-      ${inp('id.elaboracao','Elaboração da APR',{type:'date',cls:'c3'})}
-      ${inp('id.dataIni','Início da execução',{type:'date',req:1,cls:'c3'})}
-      ${inp('id.dataFim','Fim da execução',{type:'date',cls:'c3'})}
-      ${inp('id.os','Ordem de serviço',{cls:'c3'})}
-    </div>
-  </section>
-  <section class="box"><h3>Documento</h3>
+      ${inp('id.elaboracao','Elaboração da APR',{type:'date',cls:'c4'})}
+      ${inp('id.previsao','Previsão de execução',{type:'date',cls:'c4'})}
+      ${inp('id.os','Ordem de serviço',{cls:'c4'})}
+    </div>`)
+ +quadro(2,'Documento','i2',`<div class="form-grid">
+      <div class="fld c4"><span>Número</span><div style="font:500 16px/1.4 var(--f-mono);padding:8px 0">${esc(state.meta.numero)}</div></div>
+      ${inp('meta.codigo','Código do formulário',{cls:'c4',ph:'Ex.: código interno do cliente'})}
+      ${inp('meta.rev','Revisão',{cls:'c4'})}
+    </div><p class="hint" style="margin:10px 0 0">O número é gerado pelo sistema, em sequência por empresa e ano.</p>`)
+ +quadro(3,'Empresa executante','i3',`<div class="form-grid">
+      ${inp('id.empresa','Razão social',{req:1,cls:'c8'})}
+      ${inp('id.cnpj','CNPJ',{req:1,cls:'c4',mask:'cnpj',ph:'00.000.000/0000-00'})}
+    </div><div style="margin-top:12px">${endBlock('id.endEmpresa','Endereço da empresa',{copiar:1})}</div>`)
+ +quadro(4,'Dados da atividade','i4',`<p class="hint">Cliente e local onde a atividade será executada. Campos opcionais: o que ficar em branco não aparece no documento.</p>
     <div class="form-grid">
-      <div class="fld c12"><span>Número</span><div style="font:500 16px/1.4 var(--f-mono);padding:8px 0">${esc(state.meta.numero)}</div></div>
-      ${inp('meta.codigo','Código do formulário',{cls:'c6',ph:'Ex.: código interno do cliente'})}
-      ${inp('meta.rev','Revisão',{cls:'c6'})}
-    </div>
-    <p class="hint" style="margin:14px 0 0">O número é gerado pelo sistema, em sequência por empresa e ano.</p>
-  </section>
-</div>
-<div class="cols idw" style="margin-top:18px">
-  <section class="box stack"><h2 style="margin:0">Empresa executante</h2>
-    <div class="form-grid">
-      ${inp('id.empresa','Razão social',{req:1,cls:'c6'})}
-      ${inp('id.cnpj','CNPJ',{req:1,cls:'c6',mask:'cnpj',ph:'00.000.000/0000-00'})}
-    </div>
-    ${endBlock('id.endEmpresa','Endereço da empresa',{copiar:1})}
-  </section>
-  <section class="box stack"><h2 style="margin:0">Dados da atividade</h2>
-    <p class="hint" style="margin:0">Cliente e local onde a atividade será executada. Campos opcionais: o que ficar em branco não aparece no documento.</p>
-    <div class="form-grid">
-      ${inp('id.cliRazao','Razão social do cliente',{cls:'c6'})}
-      ${inp('id.cliCnpj','CNPJ do cliente',{cls:'c6',mask:'cnpj',ph:'00.000.000/0000-00'})}
+      ${inp('id.cliRazao','Razão social do cliente',{cls:'c8'})}
+      ${inp('id.cliCnpj','CNPJ do cliente',{cls:'c4',mask:'cnpj',ph:'00.000.000/0000-00'})}
       ${inp('id.local','Local do serviço',{cls:'c12',ph:'Ex.: Galpão B, sala de máquinas, telhado do bloco 2'})}
-    </div>
-    ${endBlock('id.endLocal','Endereço do local do serviço')}
-    <p class="hint" style="margin:0">A rota até os hospitais parte deste endereço. Se ficar em branco, usa o endereço da empresa.</p>
-  </section>
-</div>`;
+    </div><div style="margin-top:12px">${endBlock('id.endLocal','Endereço do local do serviço')}</div>
+    <p class="hint" style="margin:10px 0 0">A rota até os hospitais parte deste endereço. Se ficar em branco, usa o endereço da empresa.</p>`);
 
-T.ativ = () => {
-  const on = ativOn();
-  return `
-<div class="cols w2">
-  <section class="box"><h2>Atividades críticas e condições especiais</h2><p class="hint">Toque nas atividades presentes no serviço. Cada uma ativa suas regras e os requisitos que serão conferidos na liberação.</p>
-    <div class="tiles">${ATIV.map(a=>`<button type="button" class="tile" data-act="ativ" data-id="${a.id}" aria-pressed="${!!state.ativ[a.id]}"><span class="no">${a.n}</span>${svg(a.icon)}<span class="nm">${a.nome}</span></button>`).join('')}</div>
-    <div style="margin-top:14px">${inp('outras','Outras situações',{area:1,rows:2,ph:'Descreva outras condições especiais do serviço'})}</div>
-  </section>
-  <section class="stack"><h3 style="margin:0">Regras ativadas (${on.length})</h3>
-    ${on.length ? on.map(a=>`<div class="cond ${a.tipo}">
-      <div class="hd"><span>${a.n} · ${a.nome}</span><span class="kind ${a.tipo}">${TIPO[a.tipo]}</span></div>
-      <p>${a.regra}</p>
-      ${a.tipo==='permissao'?inp(`permNum.${a.id}`,`Nº da ${a.doc}`,{req:1}):''}
-      ${a.trein?`<p><b>Treinamento exigido:</b> ${TREIN[a.trein]} para todos os executantes.</p>`:''}
-      ${reqDe(a).length?`<ul>${reqDe(a).map(x=>`<li>${x.t}</li>`).join('')}</ul>`:''}
-    </div>`).join('') : `<div class="empty">Nenhuma atividade crítica marcada. Se o serviço não tiver nenhuma, siga para os riscos.</div>`}
-  </section>
-</div>
-<section class="box" style="margin-top:18px"><h2>Condições impeditivas</h2>
-  <p class="hint">Verificações feitas no local, na liberação da PT. A resposta “Sim” libera; a resposta “Não” impede o início ou exige a suspensão imediata.</p>
-  <div class="imgrid">
-    ${ATIV.filter(a=>a.tipo!=='controle').map(a=>{ const ap=impAplica(a), pr=impPorRisco(a); return `<div class="imp ${ap?'':'off'}">
-      <div class="hd"><span>Nº ${a.n} – ${a.cond}</span><span class="kind ${ap?'impeditiva':''}">${ap?'Aplicável':'Não aplicável'}</span></div><p class="q">${a.perg}</p><p>${a.orient}</p><p><b>Se “Não”:</b> ${a.seNao}</p>
-      ${!state.ativ[a.id]&&pr.length?`<p><b style="color:var(--bad)">Aplicável pelo risco marcado:</b> ${pr.join('; ')}</p>`:''}</div>`; }).join('')}
-    ${IMP_GERAIS.map(([k,pg,ori,sn])=>`<div class="imp"><div class="hd"><span>Verificação geral</span><span class="kind impeditiva">Sempre aplicável</span></div><p class="q">${pg}</p><p>${ori}</p><p><b>Se “Não”:</b> ${sn}</p></div>`).join('')}
-    ${state.impExtra.map((x,i)=>`<div class="imp">${inp(`impExtra.${i}.txt`,`Pergunta de verificação ${i+1} (escreva de forma que “Sim” libere o trabalho)`,{area:1,rows:2,ph:'Ex.: A área está isolada e sem circulação de pessoas?'})}<div><button class="btn ghost" data-act="rmImp" data-i="${i}">Remover</button></div></div>`).join('')}
-    <button class="addcard" style="min-height:120px" data-act="addImp">+ Incluir condição impeditiva</button>
-  </div>
-</section>`;
-};
+/* Riscos das etapas que sugerem cada atividade crítica */
+function riscosSugerem(a){
+  const ids=new Set([...(a.riscos||[]),...(a.rk||[])]), out=[];
+  state.etapas.forEach((e,i)=>e.riscos.forEach(r=>{ if(ids.has(r.id)) out.push(`${nomeRisco(r)} (etapa ${i+1})`); }));
+  return [...new Set(out)];
+}
+function cartaoRegra(a){
+  return `<div class="cond ${a.tipo}"><div class="hd"><span class="kind ${a.tipo}">${TIPO[a.tipo]}</span></div>
+    <p>${a.regra}</p>
+    ${a.tipo==='permissao'?inp(`permNum.${a.id}`,`Nº da ${a.doc}`,{req:1}):''}
+    ${a.trein?`<p><b>Treinamento exigido:</b> ${TREIN[a.trein]} para todos os executantes.</p>`:''}
+    ${reqDe(a).length?`<p style="margin:6px 0 2px"><b>Requisitos conferidos na liberação:</b></p><ul>${reqDe(a).map(x=>`<li>${x.t}</li>`).join('')}</ul>`:''}</div>`;
+}
+function cartaoImp(a,aviso){
+  return `<div class="imp"><div class="hd"><span>Condição impeditiva · verificada na liberação</span></div>
+    ${aviso?`<p class="ap">${aviso}</p>`:''}<p class="q">${a.perg}</p><p>${a.orient}</p><p><b>Se “Não”:</b> ${a.seNao}</p></div>`;
+}
+T.ativ = () =>
+  quadro(1,'Atividades críticas e condições especiais','a1',`<p class="hint">Toque nas atividades presentes no serviço. As destacadas foram sugeridas pelos riscos das etapas; confirme marcando ou deixe desmarcada se não se aplicar.</p>
+    <div class="arows">${ATIV.map(a=>{ const on=!!state.ativ[a.id], pr=impPorRisco(a), sg=on?[]:riscosSugerem(a);
+      const dir = on ? cartaoRegra(a)+(a.tipo!=='controle'?cartaoImp(a,''):'')
+        : (sg.length?`<p class="sugr">Sugerida pelos riscos: ${esc(sg.join('; '))}</p>`:'')
+          +(a.tipo!=='controle'&&pr.length?cartaoImp(a,`Aplicável pelo risco marcado: <b>${esc(pr.join('; '))}</b>`):'');
+      return `<div class="arow"><button type="button" class="tile ${!on&&sg.length?'sug':''}" data-act="ativ" data-id="${a.id}" aria-pressed="${on}"><span class="no">${a.n}</span>${svg(a.icon)}<span class="nm">${a.nome}</span></button>
+        <div class="adir">${dir||'<span class="off">Não marcada</span>'}</div></div>`; }).join('')}</div>`)
+ +quadro(2,'Condições impeditivas adicionais','',`<p class="hint">Perguntas extras para este serviço, verificadas na liberação. Escreva de forma que “Sim” libere o trabalho.</p>
+    <div class="stack">${state.impExtra.map((x,i)=>`<div class="imp">${inp(`impExtra.${i}.txt`,`Condição adicional ${i+1}`,{area:1,rows:2,ph:'Ex.: A área está isolada e sem circulação de pessoas?'})}<div><button class="btn ghost" data-act="rmImp" data-i="${i}">Remover</button></div></div>`).join('')}
+    <button class="addcard" style="min-height:64px" data-act="addImp">+ Incluir condição impeditiva</button></div>`)
+ +quadro(3,'Outras situações','',inp('outras','Outras situações',{area:1,rows:2,ph:'Descreva outras condições especiais do serviço'}));
 
 const optPS = (lbl,v)=>`<option value="">${lbl}</option>`+[1,2,3,4].map(i=>`<option value="${i}" ${v==i?'selected':''}>${lbl[0]} ${i} – ${(lbl[0]==='P'?P_LBL:S_LBL)[i]}</option>`).join('');
 /* Nas etapas o cabeçalho da coluna já diz P ou S: a opção mostra só o número e o nome */
@@ -564,51 +564,50 @@ function matrizHTML(cells){
 }
 
 /* Descrição das atividades por etapa (documentos a partir da versão 3) */
+const ICL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+/* Botões 1 a 4 de probabilidade (P) ou severidade (S) */
+function botoesPS(k,path,v){
+  const L=k==='P'?P_LBL:S_LBL, nome=k==='P'?'Probabilidade (P)':'Severidade (S)';
+  return `<div class="ps"><span class="psl">${nome}</span><div class="psg" role="radiogroup" aria-label="${nome}">${[1,2,3,4].map(i=>`<button type="button" data-act="ps" data-k="${path}" data-v="${i}" aria-pressed="${v==i}" aria-label="${k}${i} – ${L[i]}">${i}</button>`).join('')}</div><span class="psn ${v?'':'v'}">${v?L[v]:'Escolha de 1 a 4'}</span></div>`;
+}
+function celulasMatriz(){ const cells={}; state.etapas.forEach((e,i)=>e.riscos.forEach(r=>{ if(r.p&&r.s){ const k=`${r.p}${r.s}`; (cells[k]=cells[k]||[]).push(`${nomeRisco(r)} (etapa ${i+1})`); } })); return cells; }
+
+/* Descrição das atividades por etapa */
 function riscosEtapas(){
-  const sugA = new Set(ativOn().flatMap(a=>a.riscos)), E = state.etapas;
-  const cells = {}; E.forEach((e,i)=>e.riscos.forEach(r=>{ if(r.p&&r.s){ const k=`${r.p}${r.s}`; (cells[k]=cells[k]||[]).push(`${nomeRisco(r)} (etapa ${i+1})`); } }));
-  const resumo = resumoRiscos();
+  const E = state.etapas, resumo = resumoRiscos();
   const addSel = (e,i) => { const usados=new Set(e.riscos.map(r=>r.id)), livres=RISCOS.filter(r=>!usados.has(r[0]));
-    const sg=livres.filter(r=>sugA.has(r[0])), out=livres.filter(r=>!sugA.has(r[0]));
-    return `<select id="addRk_${i}" aria-label="Risco para incluir na etapa ${i+1}"><option value="">Escolha um risco…</option>
-      ${sg.length?`<optgroup label="Sugeridos pelas atividades críticas">${sg.map(r=>`<option value="${r[0]}">${esc(r[1])}</option>`).join('')}</optgroup>`:''}
-      <optgroup label="Riscos potenciais">${out.map(r=>`<option value="${r[0]}">${esc(r[1])}</option>`).join('')}</optgroup>
+    return `<select id="addRk_${i}" aria-label="Risco para incluir na etapa ${i+1}"><option value="">Escolha um risco da lista…</option>
+      <optgroup label="Riscos potenciais">${livres.map(r=>`<option value="${r[0]}">${esc(r[1])}</option>`).join('')}</optgroup>
       <optgroup label="Não está na lista"><option value="outro">Outro risco (descrever)</option></optgroup></select>`; };
-  return `
-<div class="cols w2 etw">
-  <section class="box"><h2>Descrição das atividades</h2>
-    <p class="hint">Divida o serviço em etapas. Em cada etapa, informe os riscos, avalie a probabilidade (P) e a severidade (S) considerando as medidas que serão adotadas, e descreva as medidas preventivas.</p>
+  const legenda = `<div class="rleg"><span><b>P</b> ${[1,2,3,4].map(i=>`${i} ${P_LBL[i]}`).join(' · ')}</span><span><b>S</b> ${[1,2,3,4].map(i=>`${i} ${S_LBL[i]}`).join(' · ')}</span>
+    <span class="lv lv-baixo">Baixo 1–3</span><span class="lv lv-moderado">Moderado 4–6</span><span class="lv lv-alto">Alto 8–9</span><span class="lv lv-critico">Crítico 12–16</span>
+    <button type="button" class="btn btn-sm" data-act="matriz">▦ Ver matriz de risco</button></div>`;
+  return quadro(1,'Descrição das atividades','r1',`<p class="hint">Divida o serviço em etapas. Em cada etapa, informe os riscos, avalie a probabilidade (P) e a severidade (S) considerando as medidas que serão adotadas, e descreva as medidas preventivas.</p>
+    ${legenda}
     ${E.map((e,i)=>{ const sg=sugMedidas(e); return `<div class="etapa">
       <div class="et-hd"><span class="et-n">${i+1}</span><b>Etapa ${i+1}</b><span class="et-t">${esc(tx(e.ativ))}</span>
         <button type="button" class="btn ghost btn-sm" data-act="upEtapa" data-i="${i}" ${i?'':'disabled'} aria-label="Subir a etapa ${i+1}">↑</button>
-        <button type="button" class="btn ghost btn-sm" data-act="rmEtapa" data-i="${i}">Remover</button></div>
+        <button type="button" class="ibtn" data-act="rmEtapa" data-i="${i}" title="Remover etapa" aria-label="Remover a etapa ${i+1}">${ICL}</button></div>
       <div class="et-bd">
         ${inp(`etapas.${i}.ativ`,'Atividade',{req:1,ph:'Ex.: Deslocamento até a empresa'})}
         ${inp(`etapas.${i}.passo`,'Passo a passo',{req:1,area:1,rows:2,ph:'Como a etapa será executada'})}
-        <div class="et-full"><div class="fld"><span>Riscos e avaliação <b class="rq">*</b></span></div>
-          ${e.riscos.length?`<div class="et-rs"><div class="et-rh"><span>Risco</span><span>Probabilidade (P)</span><span>Severidade (S)</span><span>Nível</span><span></span></div>
-          ${e.riscos.map((r,j)=>{ const nv=nivel(r.p,r.s), imA=r.id!=='outro'&&ATIV.find(a=>(a.rk||[]).includes(r.id)); return `<div class="et-r">
-            <div class="et-rn">${r.id==='outro'?inp(`etapas.${i}.riscos.${j}.nome`,'Outro risco',{ph:'Descreva o risco'}):`<b>${esc(nomeRisco(r))}</b>`}${imA?`<small class="et-imp">Ativa a condição impeditiva Nº ${imA.n} – ${esc(imA.cond)}</small>`:''}</div>
-            <label class="et-sel"><small>Probabilidade (P)</small><select id="${fid(`etapas.${i}.riscos.${j}.p`)}" data-k="etapas.${i}.riscos.${j}.p" data-num aria-label="Probabilidade">${optEt('P',r.p)}</select></label>
-            <label class="et-sel"><small>Severidade (S)</small><select id="${fid(`etapas.${i}.riscos.${j}.s`)}" data-k="etapas.${i}.riscos.${j}.s" data-num aria-label="Severidade">${optEt('S',r.s)}</select></label>
-            <span class="lv ${nv?'lv-'+nv.c:''}">${nv?`${nv.label} · ${nv.n}`:'Avaliar'}</span>
-            <button type="button" class="btn ghost btn-sm et-x" data-act="rmRiscoEt" data-i="${i}" data-j="${j}" aria-label="Remover ${esc(nomeRisco(r))}">✕</button></div>`; }).join('')}</div>`
+        <div class="fld"><span>Riscos e avaliação <b class="rq">*</b></span></div>
+        ${e.riscos.length?`<div class="et-rs"><div class="et-rh"><span>Risco</span><span>Probabilidade (P)</span><span>Severidade (S)</span><span>Nível</span><span></span></div>
+          ${e.riscos.map((r,j)=>{ const nv=nivel(r.p,r.s), imA=r.id!=='outro'&&ATIV.find(a=>(a.rk||[]).includes(r.id)), base=`etapas.${i}.riscos.${j}`;
+            const lix=`<button type="button" class="ibtn" data-act="rmRiscoEt" data-i="${i}" data-j="${j}" title="Remover risco" aria-label="Remover ${esc(nomeRisco(r))}">${ICL}</button>`;
+            return `<div class="et-r">
+            <div class="et-rn"><div>${r.id==='outro'?`<b>Outro risco</b>${inp(base+'.nome','Outro risco',{ph:'Descreva o risco'})}`:`<b>${esc(nomeRisco(r))}</b>`}${imA?`<small class="et-imp">Ativa a condição impeditiva Nº ${imA.n} – ${esc(imA.cond)}</small>`:''}</div><span class="et-xm">${lix}</span></div>
+            ${botoesPS('P',base+'.p',r.p)}${botoesPS('S',base+'.s',r.s)}
+            <div class="nvb ${nv?'lv-'+nv.c:'nv0'}"><big>${nv?nv.n:'—'}</big>${nv?nv.label.toUpperCase():'AVALIAR'}</div>
+            <span class="et-xd">${lix}</span></div>`; }).join('')}</div>`
           :'<div class="empty" style="padding:10px">Nenhum risco nesta etapa.</div>'}
-          <div class="et-add">${addSel(e,i)}<button type="button" class="btn btn-sm" data-act="addRiscoEt" data-i="${i}">+ Adicionar risco</button></div>
-        </div>
-        <div class="et-full">${inp(`etapas.${i}.med`,'Medidas preventivas',{req:1,area:1,rows:3,ph:'Uma medida por linha'})}
-          ${sg.length?`<div class="et-sug"><span>Sugestões:</span>${sg.map(m=>`<button type="button" data-act="sugMed" data-i="${i}" data-m="${esc(m)}">+ ${esc(m)}</button>`).join('')}</div>`:''}</div>
+        <div class="et-add">${addSel(e,i)}<button type="button" class="btn pri" data-act="addRiscoEt" data-i="${i}">+ Adicionar risco</button></div>
+        ${inp(`etapas.${i}.med`,'Medidas preventivas',{req:1,area:1,rows:3,ph:'Uma medida por linha'})}
+        ${sg.length?`<div class="et-sug"><span>Sugestões:</span>${sg.map(m=>`<button type="button" data-act="sugMed" data-i="${i}" data-m="${esc(m)}">+ ${esc(m)}</button>`).join('')}</div>`:''}
       </div></div>`; }).join('')}
-    ${E.length<MAX_ETAPAS?`<button type="button" class="btn pri" data-act="addEtapa">+ Adicionar etapa</button>`:`<p class="hint" style="margin:0">Limite de ${MAX_ETAPAS} etapas por documento.</p>`}
-  </section>
-  <section class="stack">
-    <div class="box"><h3>Matriz de risco 4×4</h3>${matrizHTML(cells)}
-      <p class="hint" style="margin:12px 0 0">Cada risco de cada etapa entra na matriz. Risco crítico em qualquer etapa impede a liberação; risco alto aparece como alerta.</p></div>
-    <div class="box"><h3>Riscos potenciais (resumo)</h3><p class="hint">Montado a partir das etapas, com o maior nível de cada risco.</p>
-      ${resumo.length?`<div class="et-res">${resumo.map(r=>`<div><span class="lv ${r.nv?'lv-'+r.nv.c:''}">${r.nv?`${r.nv.label} · ${r.nv.n}`:'—'}</span><span>${esc(r.nome)}<small>Etapa${r.et.length>1?'s':''} ${r.et.join(', ')}</small></span></div>`).join('')}</div>`:'<div class="empty">Os riscos aparecem aqui conforme você inclui nas etapas.</div>'}
-    </div>
-  </section>
-</div>`;
+    ${E.length<MAX_ETAPAS?`<button type="button" class="btn pri" data-act="addEtapa">+ Adicionar etapa</button>`:`<p class="hint" style="margin:0">Limite de ${MAX_ETAPAS} etapas por documento.</p>`}`)
+  + quadro(2,'Riscos potenciais (resumo)','',`<p class="hint">Montado a partir das etapas, com o maior nível de cada risco.</p>
+      ${resumo.length?`<div class="et-res">${resumo.map(r=>`<div><span class="lv ${r.nv?'lv-'+r.nv.c:''}">${r.nv?`${r.nv.label} · ${r.nv.n}`:'—'}</span><span>${esc(r.nome)}</span><small>Etapa${r.et.length>1?'s':''} ${r.et.join(', ')}</small></div>`).join('')}</div>`:'<div class="empty">Os riscos aparecem aqui conforme você inclui nas etapas.</div>'}`);
 }
 
 T.riscos = () => {
@@ -657,17 +656,16 @@ T.riscos = () => {
 
 T.medidas = () => {
   const sg = sugeridos(), s=state;
-  const pend = [...sg.m].filter(x=>!s.medidas[x]).length + [...sg.e].filter(x=>!s.epi[x]).length + [...sg.c].filter(x=>!s.epc[x]).length;
-  const semCtrl = pend ? riscosOn().filter(r=>{ const g=SUG[r[0]]; return g && ![...(g.m||[]).map(x=>s.medidas[x]),...(g.e||[]).map(x=>s.epi[x]),...(g.c||[]).map(x=>s.epc[x])].some(Boolean); }) : [];
-  const col = (title,list,base,set) => `<section class="box"><h3>${title}</h3><div class="list">${
-    [...list].filter(([id])=>!OCULTOS.has(id)||get(`${base}.${id}`)).sort((a,b)=>(set.has(b[0])?1:0)-(set.has(a[0])?1:0)).map(([id,nm])=>chk(`${base}.${id}`,nm,{cls:set.has(id)&&!get(`${base}.${id}`)?'sug':'',tag:set.has(id)&&!get(`${base}.${id}`)?'sugerido':''})).join('')}</div>`;
-  return `
-${pend?`<div class="banner warn"><span style="flex:1;min-width:220px"><b>${pend} item(ns) sugerido(s) pelos riscos marcados ainda não selecionado(s).</b>${semCtrl.length?` Sem nenhum controle: ${semCtrl.map(r=>r[1]).join('; ')}.`:''}</span><button class="btn pri" data-act="sugestoes">Aplicar sugestões</button></div>`:''}
-<div class="cols w3">
-  ${col('Medidas de segurança',MEDIDAS,'medidas',sg.m)}<div style="margin-top:10px">${inp('medidaOutra','Outras medidas',{area:1,rows:2})}</div></section>
-  ${col('EPI',EPI,'epi',sg.e)}<div style="margin-top:10px">${inp('epiOutro','Outros EPIs',{area:1,rows:2})}</div></section>
-  ${col('EPC e ferramentas',EPC,'epc',sg.c)}<div style="margin-top:10px">${inp('epcOutro','Outros EPC e ferramentas',{area:1,rows:2})}</div></section>
-</div>`;
+  const lista = (list,base,set) => `<div class="ckgrid">${[...list].filter(([id])=>!OCULTOS.has(id)||get(`${base}.${id}`))
+    .sort((a,b)=>(set.has(b[0])?1:0)-(set.has(a[0])?1:0))
+    .map(([id,nm])=>chk(`${base}.${id}`,nm,{cls:set.has(id)&&!get(`${base}.${id}`)?'sug':'',tag:set.has(id)&&!get(`${base}.${id}`)?'sugerido':''})).join('')}</div>`;
+  const aplicar = (k,base,set) => { const n=[...set].filter(x=>!s[base][x]).length; return n?`<button type="button" class="btn pri btn-sm" data-act="sugQ" data-q="${k}">Aplicar ${n} sugest${n>1?'ões':'ão'}</button>`:''; };
+  const etapas = s.modoEtapas ? s.etapas.filter(e=>tx(e.med)) : [];
+  return (s.modoEtapas ? quadro(1,'Medidas preventivas das etapas','',`<p class="hint">Só consulta: o que foi escrito em cada etapa na aba 02 Riscos.</p>
+      ${etapas.length?`<div class="stack" style="gap:6px">${s.etapas.map((e,i)=>tx(e.med)?`<div class="etmed"><b>Etapa ${i+1}${tx(e.ativ)?' · '+esc(e.ativ):''}:</b> ${esc(tx(e.med).split('\n').map(tx).filter(Boolean).join('; '))}</div>`:'').join('')}</div>`:'<div class="empty">Nenhuma medida descrita nas etapas ainda.</div>'}`) : '')
+   + quadro(s.modoEtapas?2:1,'Medidas de segurança','m2',`<p class="hint">Medidas gerais do serviço. Os itens “sugerido” vêm dos riscos das etapas.</p>${lista(MEDIDAS,'medidas',sg.m)}<div style="margin-top:10px">${inp('medidaOutra','Outras medidas',{area:1,rows:2})}</div>`,{acoes:aplicar('m','medidas',sg.m)})
+   + quadro(s.modoEtapas?3:2,'EPI','m3',`<p class="hint">Equipamentos de proteção individual. Os itens “sugerido” vêm dos riscos das etapas.</p>${lista(EPI,'epi',sg.e)}<div style="margin-top:10px">${inp('epiOutro','Outros EPIs',{area:1,rows:2})}</div>`,{acoes:aplicar('e','epi',sg.e)})
+   + quadro(s.modoEtapas?4:3,'EPC e ferramentas','m4',`<p class="hint">Equipamentos de proteção coletiva e ferramentas.</p>${lista(EPC,'epc',sg.c)}<div style="margin-top:10px">${inp('epcOutro','Outros EPC e ferramentas',{area:1,rows:2})}</div>`,{acoes:aplicar('c','epc',sg.c)});
 };
 
 T.equipe = () => {
@@ -676,7 +674,7 @@ T.equipe = () => {
 <div class="banner"><span>${tr.length?`<b>Treinamentos exigidos por esta APR:</b> ${tr.map(t=>TREIN[t]).join(', ')} para todos os executantes.`:'Nenhum treinamento específico exigido pelas atividades marcadas.'} Cada trabalhador assina a ciência da APR no próprio celular ou no aparelho do líder.</span></div>
 <div class="wgrid">
   ${state.equipe.map((w,i)=>`<section class="box wk">
-    <div style="display:flex;align-items:center;gap:8px"><h3 style="margin:0;flex:1">Executante ${i+1}</h3><button class="btn ghost" data-act="rmWorker" data-i="${i}" aria-label="Remover executante ${i+1}">Remover</button></div>
+    <div style="display:flex;align-items:center;gap:8px"><h3 class="qt" style="flex:1">Executante ${i+1}</h3><button class="btn ghost" data-act="rmWorker" data-i="${i}" aria-label="Remover executante ${i+1}">Remover</button></div>
     ${inp(`equipe.${i}.nome`,'Nome',{req:1})}
     <div class="row">${inp(`equipe.${i}.cpf`,'CPF',{req:1,mask:'cpf',inputmode:'numeric',ph:'000.000.000-00'})}${inp(`equipe.${i}.mat`,'Matrícula')}</div>
     ${inp(`equipe.${i}.funcao`,'Função',{req:1})}
@@ -712,20 +710,20 @@ T.emerg = () => {
 
   return `
 <div class="cols w2">
-  <section class="box"><h2>Plano de resposta a emergências</h2><p class="hint">Texto padrão editável. No sistema final, cada cliente define o seu.</p>
+  <section class="box"><h2 class="qt" style="margin-bottom:8px">Plano de resposta a emergências</h2><p class="hint">Texto padrão editável. No sistema final, cada cliente define o seu.</p>
     <div class="stack">${state.emerg.planos.map((p,i)=>inp(`emerg.planos.${i}`,`Plano ${'ABCD'[i]}`,{area:1,rows:2})).join('')}</div>
   </section>
-  <section class="box"><h2>Telefones de emergência</h2><p class="hint">Preenchidos por quem emite o documento, conforme o local do serviço.</p>
+  <section class="box"><h2 class="qt" style="margin-bottom:8px">Telefones de emergência</h2><p class="hint">Preenchidos por quem emite o documento, conforme o local do serviço.</p>
     <div class="stack">
       ${state.emerg.tel.map((t,i)=>`<div class="tel">${inp(`emerg.tel.${i}.s`,'Serviço / contato')}${inp(`emerg.tel.${i}.t`,'Telefone',{type:'tel',inputmode:'tel'})}<button class="btn ghost" style="align-self:end" data-act="rmTel" data-i="${i}" aria-label="Remover telefone">✕</button></div>`).join('')}
       <div><button class="btn" data-act="addTel">+ Telefone</button></div>
     </div>
   </section>
 </div>
-<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:22px"><h2 style="margin:0">Hospitais de referência</h2><span class="hint" style="margin:0">${orig?`Rota a partir ${origemTipo()==='local'?'do endereço da atividade':'do endereço da empresa (o endereço da atividade está em branco)'}: <b>${esc(orig)}</b>`:'Informe o endereço da atividade ou da empresa na aba Identificação para traçar a rota.'}</span></div>
+<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:22px"><h2 class="qt">Hospitais de referência</h2><span class="hint" style="margin:0">${orig?`Rota a partir ${origemTipo()==='local'?'do endereço da atividade':'do endereço da empresa (o endereço da atividade está em branco)'}: <b>${esc(orig)}</b>`:'Informe o endereço da atividade ou da empresa na aba Identificação para traçar a rota.'}</span></div>
 <div class="hgrid">
   ${state.emerg.hospitais.map((h,i)=>`<section class="box hosp" id="hosp-${i}">
-    <div style="display:flex;align-items:center;gap:8px"><h3 style="margin:0;flex:1">Hospital ${i+1}</h3>${state.emerg.hospitais.length>1?`<button class="btn ghost" data-act="rmHosp" data-i="${i}" aria-label="Remover hospital ${i+1}">Remover</button>`:''}</div>
+    <div style="display:flex;align-items:center;gap:8px"><h3 class="qt" style="flex:1">Hospital ${i+1}</h3>${state.emerg.hospitais.length>1?`<button class="btn ghost" data-act="rmHosp" data-i="${i}" aria-label="Remover hospital ${i+1}">Remover</button>`:''}</div>
     ${inp(`emerg.hospitais.${i}.nome`,'Hospital ou pronto-socorro',{req:1})}
     ${endBlock(`emerg.hospitais.${i}.addr`,'Endereço',{req:1})}
     <div class="row3">${inp(`emerg.hospitais.${i}.tel`,'Telefone do hospital',{type:'tel',inputmode:'tel'})}<div class="row3" style="gap:8px">${inp(`emerg.hospitais.${i}.km`,'Distância (km)',{inputmode:'decimal',map:1})}${inp(`emerg.hospitais.${i}.min`,'Tempo (min)',{inputmode:'numeric',map:1})}</div></div>
@@ -735,14 +733,27 @@ T.emerg = () => {
 </div>`;
 };
 
+const validadeTxt = (enc=true) => { const m=state.meta; if(!m.liberadaEm) return 'Execução: aguardando liberação';
+  return `Liberada em ${fmtDH(m.validadeIni||m.liberadaEm)} · válida até ${fmtDH(m.validadeFim||state.lib.fim)}${enc&&m.encerradaEm?` · encerrada em ${fmtDH(m.encerradaEm)}`:''} (horário de Brasília)`; };
+/* Linha de situação no topo da aba Liberação (rascunho) */
+function topoLib(){
+  const b=ED.P.filter(p=>p.b).length;
+  return `<div class="sitl"><span><b>${b?`${b} pendência${b>1?'s':''} impede${b>1?'m':''} a liberação`:'Pronta para liberar'}</b> · o botão Liberar PT fica no fim desta aba</span>
+    ${podeU('editar')?`<details class="cancel"><summary>Cancelar documento</summary><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><input type="text" id="motivoCancel" placeholder="Motivo do cancelamento" style="flex:1;min-width:200px"><button class="btn" data-act="cancelar">Cancelar documento</button></div></details>`:''}</div>`;
+}
+/* Barra com o botão Liberar PT, no fim da aba */
+function fimLib(){
+  const b=ED.P.filter(p=>p.b).length;
+  return `<div class="action fim"><div class="t"><b>${b?`${b} pendência${b>1?'s':''} impede${b>1?'m':''} a liberação`:'Pronta para liberar'}</b><span>${b?'Resolva os itens em vermelho. A liberação registra data e hora e bloqueia a edição da APR.':'Ao liberar, a validade começa agora e vai até 12 horas depois (horário de Brasília). A APR fica bloqueada para edição.'}</span></div>${podeU('liberar')?`<button class="btn pri big" data-act="liberar" ${b||!libAberta()?'disabled':''}>Liberar PT</button>`:'<span class="hint" style="margin:0">Seu perfil não libera PT. A conferência e a liberação são feitas pelo liberador.</span>'}</div>`;
+}
+/* Barra de ação depois da liberação (topo das abas Liberação e Encerramento) */
 function actionBar(){
-  const P=pend(), b=P.filter(p=>p.b).length, st=statusVis();
-  if(st==='rascunho') return `<div class="action"><div class="t"><b>${b?`${b} pendência(s) impedem a liberação`:'Pronta para liberar'}</b><span>${b?'Resolva os itens em vermelho no resumo. A liberação registra data e hora e bloqueia a edição da APR.':'Ao liberar, a APR fica bloqueada para edição e a PT passa a valer até o fim do turno informado.'}</span></div>${podeU('liberar')?`<button class="btn pri big" data-act="liberar" ${b||!libAberta()?'disabled':''}>Liberar PT</button>`:'<span class="hint" style="margin:0">Seu perfil não libera PT. A conferência e a liberação são feitas pelo liberador.</span>'}
-  ${podeU('editar')?`<details class="cancel" style="flex-basis:100%"><summary class="hint" style="cursor:pointer;margin:0">Cancelar este documento</summary><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><input type="text" id="motivoCancel" placeholder="Motivo do cancelamento" style="flex:1;min-width:200px"><button class="btn" data-act="cancelar">Cancelar documento</button></div></details>`:''}</div>`;
-  if(st==='liberada'||st==='vencida') return `<div class="action"><div class="t"><b>${st==='vencida'?'PT vencida':'PT liberada'} em ${fmtDH(state.meta.liberadaEm)}</b><span>Válida até ${fmtDH(state.lib.fim)}. Qualquer integrante pode suspender o trabalho se as condições mudarem.</span></div>${inp('lib.motivo','Motivo da suspensão',{cls:'',ph:'Ex.: início de chuva'})}${podeU('suspender')?'<button class="btn warn" data-act="suspender">Suspender</button>':''}</div>`;
-  if(st==='suspensa') return `<div class="action"><div class="t"><b>PT suspensa</b><span>Confira as condições no local antes de retomar.</span></div>${podeRetomar()?'<button class="btn pri" data-act="retomar">Retomar trabalho</button>':''}</div>`;
+  const st=statusVis();
+  if(st==='liberada'||st==='vencida') return `<div class="action"><div class="t"><b>${st==='vencida'?'PT vencida':'PT liberada'}</b><span>${validadeTxt()}. Qualquer integrante pode suspender o trabalho se as condições mudarem.</span></div>${podeU('suspender')?`${inp('lib.motivo','Motivo da suspensão',{cls:'',ph:'Ex.: início de chuva'})}<button class="btn warn" data-act="suspender">Suspender</button>`:''}</div>`;
+  if(st==='suspensa') return `<div class="action"><div class="t"><b>PT suspensa</b><span>${validadeTxt()}. Confira as condições no local antes de retomar.</span></div>${podeRetomar()?'<button class="btn pri" data-act="retomar">Retomar trabalho</button>':''}</div>`;
   if(st==='cancelada') return `<div class="action"><div class="t"><b>Documento cancelado</b><span>Consulte o motivo no histórico, na aba Documento.</span></div></div>`;
-  return `<div class="action"><div class="t"><b>PT encerrada em ${fmtDH(state.meta.encerradaEm)}</b><span>Documento finalizado. Consulte a aba Documento.</span></div></div>`;
+  if(st==='encerrada') return `<div class="action"><div class="t"><b>PT encerrada</b><span>${validadeTxt()}. Documento finalizado. Consulte a aba Documento.</span></div></div>`;
+  return '';
 }
 
 /* ---------- Pré-preenchimento com os dados do usuário logado ---------- */
@@ -785,72 +796,59 @@ T.lib = () => {
       : ap.length ? `<div class="banner warn"><span><b>Resolva ${ap.length} pendência(s) da APR (abas 01 a 06)</b> para preencher e assinar como elaborador.</span></div>`
       : elabAssinou() ? `<div class="banner ok"><span>APR assinada. Qualquer alteração nas abas 01 a 06 remove esta assinatura.</span></div>` : '';
   const avisoLib = !rasc ? '' : !podeU('liberar')
-      ? `<div class="banner"><span>A conferência, a validade e a liberação são feitas pelo liberador.</span></div>`
+      ? `<div class="banner"><span>A conferência e a liberação são feitas pelo liberador, no local.</span></div>`
       : !elabAssinou() || ap.length ? `<div class="banner warn"><span><b>Aguardando o elaborador concluir e assinar a APR.</b> A conferência e a liberação abrem depois da assinatura.</span></div>` : '';
   const fs = (trava, html) => trava ? `<fieldset disabled>${html}</fieldset>` : html;
-  return `
-<section class="box" style="margin-bottom:18px"><div class="bh"><h2 style="margin:0">1 · Elaborado por</h2>${btnMeus('elaborador')}</div>
-  ${avisoElab}
-  ${fs(travaElab, `<div class="form-grid">${inp('lib.elaborador.nome','Nome',{req:1,cls:'c4'})}${inp('lib.elaborador.funcao','Função',{cls:'c4',ph:'Técnico ou Engenheiro de Segurança'})}
+  const impv = c => { const k=`lib.imped.${c.key}`, v=state.lib.imped?.[c.key]||'';
+    return `<div class="impv ${v}"><div class="t">${c.titulo?`<span class="ctit">${esc(c.titulo)}</span>`:'<span class="ctit">Verificação geral</span>'}<b>${esc(c.perg)}</b>${c.orient?`<small>${esc(c.orient)}</small>`:''}${v==='presente'?`<small class="sn"><b>Se “Não”:</b> ${esc(c.seNao)}</small>`:''}</div><div class="seg" role="radiogroup" aria-label="${esc(c.perg)}">
+      <label><input type="radio" name="${fid(k)}" id="${fid(k)}_a" data-k="${k}" value="ausente" ${v==='ausente'?'checked':''}><span>Sim</span></label>
+      <label class="p"><input type="radio" name="${fid(k)}" id="${fid(k)}_p" data-k="${k}" value="presente" ${v==='presente'?'checked':''}><span>Não</span></label></div></div>`; };
+  return `${rasc?topoLib():''}
+${quadro(1,'Elaborado por','l1',`${avisoElab}${fs(travaElab, `<div class="form-grid">${inp('lib.elaborador.nome','Nome',{req:1,cls:'c4'})}${inp('lib.elaborador.funcao','Função',{cls:'c4',ph:'Técnico ou Engenheiro de Segurança'})}
     ${inp('lib.elaborador.cpf','CPF',{cls:'c4',mask:'cpf',inputmode:'numeric',ph:'000.000.000-00'})}
     <label class="fld c4"><span>Registro <b class="rq">*</b></span><select id="f_lib_elaborador_regTipo" data-k="lib.elaborador.regTipo"><option value="MTE" ${state.lib.elaborador.regTipo==='MTE'?'selected':''}>MTE (técnico)</option><option value="CREA" ${state.lib.elaborador.regTipo==='CREA'?'selected':''}>CREA (engenheiro)</option></select></label>
     ${inp('lib.elaborador.regNum',`Nº do registro ${state.lib.elaborador.regTipo}`,{req:1,cls:'c8',ph:state.lib.elaborador.regTipo==='CREA'?'Ex.: 5061234567/SP':'Ex.: SP/012345'})}</div>
-  <div style="margin-top:10px">${sigBlock('lib.elaborador.ass','Assinatura do elaborador')}</div>`)}
-</section>
-<h2 style="margin:0 0 10px">2 · Liberação da PT</h2>
+  <div style="margin-top:10px">${sigBlock('lib.elaborador.ass','Assinatura do elaborador')}</div>`)}`,{acoes:btnMeus('elaborador')})}
+<div class="sep">Liberação da PT · preenchida pelo liberador no local</div>
 ${avisoLib}
-${fs(travaLib, `<div class="cols w2">
-  <section class="box"><h2>Conferência para liberação</h2><p class="hint">Itens gerados a partir das atividades críticas marcadas na APR.</p>
-    <h3>Condições impeditivas – verificação no local</h3>
-    <div class="stack" style="gap:6px">${impedimentos().map(c=>{ const k=`lib.imped.${c.key}`, v=state.lib.imped?.[c.key]||'';
-      return `<div class="impv ${v}"><div class="t">${c.titulo?`<span class="ctit">${esc(c.titulo)}</span>`:''}<b>${esc(c.perg)}</b>${c.orient?`<small>${esc(c.orient)}</small>`:''}${v==='presente'?`<small class="sn"><b>Se “Não”:</b> ${esc(c.seNao)}</small>`:''}</div><div class="seg" role="radiogroup" aria-label="${esc(c.perg)}">
-        <label><input type="radio" name="${fid(k)}" id="${fid(k)}_a" data-k="${k}" value="ausente" ${v==='ausente'?'checked':''}><span>Sim</span></label>
-        <label class="p"><input type="radio" name="${fid(k)}" id="${fid(k)}_p" data-k="${k}" value="presente" ${v==='presente'?'checked':''}><span>Não</span></label></div></div>`; }).join('')}</div>
-    <p class="hint" style="margin:8px 0 16px">Qualquer resposta “Não” impede a liberação. Se a situação mudar durante o trabalho, suspenda a PT.</p>
-    <h3>Requisitos das atividades</h3>
-    <div class="list">${rq.length?rq.map(r=>chk(`lib.req.${r.key}`,`<b>${r.a.n}</b> · ${r.txt}`)).join(''):'<div class="empty">Nenhuma atividade crítica marcada.</div>'}</div>
-    <h3 style="margin-top:16px">Verificações gerais</h3>
-    <div class="list">${GERAIS.map(g=>chk(`lib.gerais.${g[0]}`,g[1])).join('')}</div>
-  </section>
-  <section class="stack">
-    <div class="box"><h3>Validade da PT (um turno)</h3>
-      <div class="form-grid">${inp('lib.ini','Início',{type:'datetime-local',req:1,cls:'c6'})}${inp('lib.fim','Fim',{type:'datetime-local',req:1,cls:'c6'})}</div>
-    </div>
-    <div class="box"><div class="bh"><h3>Liberado por</h3>${btnMeus('liberador')}</div>
-      <div class="form-grid">${inp('lib.liberador.nome','Nome',{req:1,cls:'c6'})}${inp('lib.liberador.funcao','Função',{cls:'c6',ph:'Responsável pela área'})}${inp('lib.liberador.cpf','CPF',{req:1,cls:'c6',mask:'cpf',inputmode:'numeric',ph:'000.000.000-00'})}</div>
-      <div style="margin-top:10px">${sigBlock('lib.liberador.ass','Assinatura do liberador')}</div>
-    </div>
-  </section>
-</div>`)}`;
+${fs(travaLib, quadro(2,'Condições impeditivas – verificação no local','l2',`<p class="hint">A resposta “Sim” libera; a resposta “Não” impede o início ou exige a suspensão imediata.</p><div class="stack" style="gap:6px">${impedimentos().map(impv).join('')}</div>`)
+ + quadro(3,'Requisitos e conferências no local','l3',`<div class="cols" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px">
+    <div><h3 class="sub">Requisitos das atividades</h3><div class="list">${rq.length?rq.map(r=>chk(`lib.req.${r.key}`,`<b>${r.a.n}</b> · ${r.txt}`)).join(''):'<div class="empty">Nenhuma atividade crítica marcada.</div>'}</div></div>
+    <div><h3 class="sub">Conferências no local</h3><div class="list">${GERAIS.map(g=>chk(`lib.gerais.${g[0]}`,g[1])).join('')}</div></div></div>`)
+ + quadro(4,'Validade da PT','',`<div class="valid">${state.meta.liberadaEm?`<b>${validadeTxt(false)}</b>`:'A validade começa no momento em que o liberador clicar em <b>Liberar PT</b> e vale por até <b>12 horas</b> (horário de Brasília). Pode terminar no dia seguinte.'}</div>`)
+ + quadro(5,'Liberado por','l5',`<div class="form-grid">${inp('lib.liberador.nome','Nome',{req:1,cls:'c4'})}${inp('lib.liberador.funcao','Função',{cls:'c4',ph:'Responsável pela área'})}${inp('lib.liberador.cpf','CPF',{req:1,cls:'c4',mask:'cpf',inputmode:'numeric',ph:'000.000.000-00'})}</div>
+    <div style="margin-top:10px">${sigBlock('lib.liberador.ass','Assinatura do liberador')}</div>`,{acoes:btnMeus('liberador')}))}
+${rasc?fimLib():''}`;
 };
 
+/* Barra com o botão Encerrar PT, no fim da aba */
+function fimEnc(){
+  const st=statusVis(), n=(ED.PE||[]).length, ok=!n;
+  if(!['liberada','vencida','suspensa'].includes(st)) return '';
+  return `<div class="action fim"><div class="t"><b>${ok?'Pronta para encerrar':`${n} pendência${n>1?'s':''} impede${n>1?'m':''} o encerramento`}</b><span>${ok?'O horário do encerramento é registrado no momento do clique (horário de Brasília).':'Marque todos os itens, informe o responsável (nome e CPF válido) e assine.'}</span></div>${podeU('encerrar')?`<button class="btn pri big" data-act="encerrar" ${ok?'':'disabled'}>Encerrar PT</button>`:''}</div>`;
+}
 T.enc = () => {
   const st = statusVis(), pode = ['liberada','vencida','suspensa'].includes(st) && podeU('encerrar');
-  const ok = ENC.every(x=>state.enc.chk[x[0]]) && state.enc.resp.nome.trim() && cpfOk(state.enc.resp.cpf) && state.enc.resp.ass;
+  const ok = !ED.PE.length;
   return `
 ${st==='rascunho'?`<div class="banner warn">O encerramento fica disponível depois que a PT for liberada.</div>`:''}
-${st==='encerrada'?`<div class="banner ok"><b>PT encerrada em ${fmtDH(state.meta.encerradaEm)}.</b></div>`:''}
 <fieldset ${pode?'':'disabled'}>
-<div class="cols w2">
-  <section class="box"><h2>Encerramento da PT</h2><p class="hint">Conferência final antes de devolver a área.</p>
-    <div class="list">${ENC.map(x=>chk(`enc.chk.${x[0]}`,x[1])).join('')}</div>
-    <div class="form-grid" style="margin-top:12px">
-      <label class="fld c6"><span>Situação do serviço</span><select id="f_enc_situacao" data-k="enc.situacao"><option value="concluido" ${state.enc.situacao==='concluido'?'selected':''}>Concluído</option><option value="nao" ${state.enc.situacao==='nao'?'selected':''}>Não concluído</option></select></label>
-      ${inp('enc.obs','Observações',{area:1,rows:3,cls:'c12'})}
-    </div>
-  </section>
-  <section class="box"><div class="bh"><h3>Responsável pelo encerramento</h3>${btnMeus('resp')}</div>
-    <div class="form-grid">${inp('enc.resp.nome','Nome',{req:1,cls:'c12'})}${inp('enc.resp.funcao','Função',{cls:'c6'})}${inp('enc.resp.cpf','CPF',{req:1,cls:'c6',mask:'cpf',inputmode:'numeric',ph:'000.000.000-00'})}</div>
-    <div style="margin-top:10px">${sigBlock('enc.resp.ass','Assinatura')}</div>
-    <div style="margin-top:16px"><button class="btn pri big" data-act="encerrar" ${ok?'':'disabled'}>Encerrar PT</button></div>
-    ${!ok&&pode?`<p class="hint" style="margin:10px 0 0">Marque todos os itens, informe o responsável (nome e CPF válido) e assine para encerrar.</p>`:''}
-  </section>
-</div></fieldset>`;
+${quadro(1,'Conferência final','e1',`<p class="hint">Conferência final antes de devolver a área.</p><div class="list">${ENC.map(x=>chk(`enc.chk.${x[0]}`,x[1])).join('')}</div>`)}
+${quadro(2,'Situação do serviço','e2',`<div class="form-grid">
+    <label class="fld c4"><span>Situação <b class="rq">*</b></span><select id="f_enc_situacao" data-k="enc.situacao"><option value="concluido" ${state.enc.situacao==='concluido'?'selected':''}>Concluído</option><option value="nao" ${state.enc.situacao==='nao'?'selected':''}>Não concluído</option></select></label>
+    ${inp('enc.obs',state.enc.situacao==='nao'?'Observações – motivo de não ter sido concluído':'Observações',{area:1,rows:3,cls:'c8',req:state.enc.situacao==='nao'})}
+  </div>`)}
+${quadro(3,'Responsável pelo encerramento','e3',`<div class="form-grid">${inp('enc.resp.nome','Nome',{req:1,cls:'c4'})}${inp('enc.resp.funcao','Função',{cls:'c4'})}${inp('enc.resp.cpf','CPF',{req:1,cls:'c4',mask:'cpf',inputmode:'numeric',ph:'000.000.000-00'})}</div>
+  <div style="margin-top:10px">${sigBlock('enc.resp.ass','Assinatura')}</div>`,{acoes:btnMeus('resp')})}
+${fimEnc()}
+</fieldset>`;
 };
 
-function periodoTxt(s=state){
-  const ex = s.id.dataIni ? (s.id.dataFim && s.id.dataFim!==s.id.dataIni ? `Execução de ${fmtData(s.id.dataIni)} a ${fmtData(s.id.dataFim)}` : `Execução em ${fmtData(s.id.dataIni)}`) : 'Execução: —';
-  return `${s.id.elaboracao?`Elaborada em ${fmtData(s.id.elaboracao)} · `:''}${ex}`;
+function periodoTxt(st=state){
+  const m=st.meta, el=st.id.elaboracao?`Elaborada em ${fmtData(st.id.elaboracao)}`:'';
+  const ex = m.liberadaEm ? `Executada em ${fmtDH(m.validadeIni||m.liberadaEm)} até ${fmtDH(m.validadeFim||st.lib.fim)} (horário de Brasília)` : 'Execução: aguardando liberação';
+  const pv = tx(st.id.previsao) ? ` · Previsão de execução: ${fmtData(st.id.previsao)}` : '';
+  return [el,ex].filter(Boolean).join(' · ')+pv;
 }
 function docEtapas(){
   const E=state.etapas, res=resumoRiscos();
@@ -888,6 +886,11 @@ T.doc = () => {
     ${tx(s.id.os)?`<tr><th>Ordem de serviço</th><td colspan="3">${esc(s.id.os)}</td></tr>`:''}
     <tr><th>Serviço a ser executado</th><td colspan="3">${esc(s.id.servico)}</td></tr>
   </table>
+  ${s.modoEtapas?docEtapas():`<div class="sh">Riscos potenciais</div>
+  <table><tr><th>Risco</th>${s.usarMatriz?'<th class="ctr" style="width:9%">P</th><th class="ctr" style="width:9%">S</th><th class="ctr" style="width:16%">Nível</th>':''}</tr>
+    ${rk.map(r=>{ const v=s.riscos[r[0]], nv=nivel(v.p,v.s); return `<tr><td>${esc(r[1])}</td>${s.usarMatriz?`<td class="ctr">${v.p||'—'}</td><td class="ctr">${v.s||'—'}</td><td class="ctr">${nv?`${nv.label} (${nv.n})`:'—'}</td>`:''}</tr>`; }).join('')}
+    ${s.riscosExtra.map(x=>{ const nv=nivel(x.p,x.s); return `<tr><td>${esc(x.nome)}<div class="note">Medida: ${esc(x.medida)}</div></td>${s.usarMatriz?`<td class="ctr">${x.p||'—'}</td><td class="ctr">${x.s||'—'}</td><td class="ctr">${nv?`${nv.label} (${nv.n})`:'—'}</td>`:''}</tr>`; }).join('')}
+  </table>`}
   <div class="sh">Identificação de atividades críticas e condições especiais</div>
   <div class="ag">${ATIV.map(a=>`<div>${x(s.ativ[a.id])}<span><b>${a.n}</b> ${a.nome}</span></div>`).join('')}</div>
   ${s.outras.trim()?`<div class="pr"><b>Outras situações:</b> ${esc(s.outras)}</div>`:''}
@@ -897,11 +900,6 @@ T.doc = () => {
       return `<tr><td>${c.titulo?`<div class="note">${esc(c.titulo)}${a&&a.tipo==='permissao'?` · ${a.doc} nº ${esc(s.permNum[a.id]||'—')}`:''}</div>`:''}<b>${esc(c.perg)}</b>${c.orient?`<div class="note">${esc(c.orient)} <b>Se “Não”:</b> ${esc(c.seNao)}</div>`:''}</td><td class="ctr">${v==='ausente'?'<span class="ok">Sim</span>':v==='presente'?'<b style="color:#c2382c">NÃO</b>':'—'}</td></tr>`; }).join('')}
   </table>
   ${ativOn().some(a=>a.tipo==='controle')?`<div class="sh">Requisitos das atividades críticas</div><div class="pr">${ativOn().filter(a=>a.tipo==='controle').map(a=>`<p><b>Nº ${a.n} – ${a.nome}:</b> ${a.regra}</p>`).join('')}</div>`:''}
-  ${s.modoEtapas?docEtapas():`<div class="sh">Riscos potenciais</div>
-  <table><tr><th>Risco</th>${s.usarMatriz?'<th class="ctr" style="width:9%">P</th><th class="ctr" style="width:9%">S</th><th class="ctr" style="width:16%">Nível</th>':''}</tr>
-    ${rk.map(r=>{ const v=s.riscos[r[0]], nv=nivel(v.p,v.s); return `<tr><td>${esc(r[1])}</td>${s.usarMatriz?`<td class="ctr">${v.p||'—'}</td><td class="ctr">${v.s||'—'}</td><td class="ctr">${nv?`${nv.label} (${nv.n})`:'—'}</td>`:''}</tr>`; }).join('')}
-    ${s.riscosExtra.map(x=>{ const nv=nivel(x.p,x.s); return `<tr><td>${esc(x.nome)}<div class="note">Medida: ${esc(x.medida)}</div></td>${s.usarMatriz?`<td class="ctr">${x.p||'—'}</td><td class="ctr">${x.s||'—'}</td><td class="ctr">${nv?`${nv.label} (${nv.n})`:'—'}</td>`:''}</tr>`; }).join('')}
-  </table>`}
   <div class="sh">Medidas de segurança obrigatórias</div><div class="cl">${sel(MEDIDAS,'medidas')}${(s.modoEtapas?[]:s.riscosExtra).filter(x=>(x.medida||'').trim()).map(x=>`<div>☑ ${esc(x.medida)}</div>`).join('')}${s.medidaOutra.trim()?`<div>☑ ${esc(s.medidaOutra)}</div>`:''}</div>
   <div class="sh">EPI</div><div class="cl">${sel(EPI,'epi')}${s.epiOutro.trim()?`<div>☑ ${esc(s.epiOutro)}</div>`:''}</div>
   <div class="sh">EPC e ferramentas</div><div class="cl">${sel(EPC,'epc')}${s.epcOutro.trim()?`<div>☑ ${esc(s.epcOutro)}</div>`:''}</div>
@@ -920,8 +918,8 @@ T.doc = () => {
   </table>
   <div class="sh">Permissão de trabalho – liberação</div>
   <table>
-    <tr><th style="width:22%">Validade</th><td colspan="3">${fmtDH(s.lib.ini)} até ${fmtDH(s.lib.fim)} ${s.meta.liberadaEm?` · Liberada em ${fmtDH(s.meta.liberadaEm)}`:''}</td></tr>
-    <tr><th>Conferências</th><td colspan="3">${[...requisitos().map(r=>[s.lib.req[r.key],r.txt]),...GERAIS.map(g=>[s.lib.gerais[g[0]],g[1]])].map(([o,t])=>`<div>${o?'<span class="ok">✓</span>':'☐'} ${t}</div>`).join('')}</td></tr>
+    <tr><th style="width:22%">Validade</th><td colspan="3">${validadeTxt()}</td></tr>
+    <tr><th>Conferências no local</th><td colspan="3">${[...requisitos().map(r=>[s.lib.req[r.key],r.txt]),...GERAIS.map(g=>[s.lib.gerais[g[0]],g[1]])].map(([o,t])=>`<div>${o?'<span class="ok">✓</span>':'☐'} ${t}</div>`).join('')}</td></tr>
     <tr><th>Elaborado por</th><td>${esc(s.lib.elaborador.nome)}<div class="note">${esc(s.lib.elaborador.funcao)}</div>${tx(s.lib.elaborador.cpf)?`<div class="note">CPF ${esc(s.lib.elaborador.cpf)}</div>`:''}${tx(s.lib.elaborador.regNum)?`<div class="note">Registro ${esc(s.lib.elaborador.regTipo)} nº ${esc(s.lib.elaborador.regNum)}</div>`:''}</td><th style="width:16%">Liberado por</th><td>${esc(s.lib.liberador.nome)}<div class="note">${esc(s.lib.liberador.funcao)}</div>${tx(s.lib.liberador.cpf)?`<div class="note">CPF ${esc(s.lib.liberador.cpf)}</div>`:''}</td></tr>
     <tr><th>Assinatura</th><td class="sigtd">${sigImg(s.lib.elaborador.ass,s.lib.elaborador.em)}</td><th>Assinatura</th><td class="sigtd">${sigImg(s.lib.liberador.ass,s.lib.liberador.em)}</td></tr>
   </table>
@@ -946,40 +944,56 @@ function renderTab(){
   const ro = somenteLeitura();
   const locked = cur!=='doc' && (ro || (st!=='rascunho' && cur!=='enc') || (soLiberacao() && cur!=='lib'));
   if(cur==='lib' || cur==='enc') preencherAuto();
+  ED.P = pend(); ED.PE = pendEnc();
   let h = '';
-  if(cur==='lib') h += actionBar();
+  if((cur==='lib' || cur==='enc') && st!=='rascunho') h += actionBar();
   else if(locked && st==='rascunho') h += `<div class="banner"><span>${soLiberacao()?'Somente consulta: o liberador não altera a APR. A conferência e a liberação ficam na aba Liberação da PT, depois da assinatura do elaborador.':'Somente leitura: seu perfil não edita documentos.'}</span></div>`;
-  else if(locked && cur!=='enc') h += `<div class="banner ok"><span>PT ${statusVis()} · A APR fica bloqueada para edição. Para alterar, use “Duplicar” e emita um novo documento.</span></div>`;
+  else if(locked && cur!=='enc' && cur!=='lib') h += `<div class="banner ok"><span>PT ${statusVis()} · A APR fica bloqueada para edição. Para alterar, use “Duplicar” e emita um novo documento.</span></div>`;
   h += locked ? `<fieldset disabled>${T[cur]()}</fieldset>` : T[cur]();
   p.innerHTML = h; p.scrollTop = top;
   if(cur==='doc') desenharQR();
   if(window.Assin) Assin.aplicar(p);
   renderChrome();
 }
+const ST_LBL = {rascunho:'Rascunho',liberada:'Liberada',suspensa:'Suspensa',encerrada:'Encerrada',vencida:'Vencida',cancelada:'Cancelada'};
 function renderChrome(){
-  const P=pend(), st=statusVis(), bl=P.filter(p=>p.b), wa=P.filter(p=>!p.b);
+  const P=pend(), PE=pendEnc(), st=statusVis(), rasc=state.meta.status==='rascunho', bl=P.filter(p=>p.b);
+  ED.P=P; ED.PE=PE;
+  /* atualiza os sinais dos quadros sem redesenhar a aba */
+  document.querySelectorAll('[data-qs]').forEach(el=>{ const t=document.createElement('span'); t.innerHTML=qStatus(el.dataset.qs); el.replaceWith(t.firstChild); });
+  /* e as barras de liberar / encerrar no fim da aba */
+  const fim=document.querySelector('#panel .action.fim'), hf = !fim ? '' : cur==='lib' ? (rasc?fimLib():'') : cur==='enc' ? fimEnc() : '';
+  if(fim && hf && fim.outerHTML!==hf){ const t=document.createElement('div'); t.innerHTML=hf; fim.replaceWith(t.firstChild); }
+  const sl=document.querySelector('#panel .sitl>span');
+  if(sl && rasc){ const t=document.createElement('div'); t.innerHTML=topoLib(); sl.replaceWith(t.querySelector('.sitl>span')); }
   $('docno').textContent = state.meta.numero;
-  const chip=$('chip'); chip.className='chip '+st; chip.textContent={rascunho:'Rascunho',liberada:'Liberada',suspensa:'Suspensa',encerrada:'Encerrada',vencida:'Vencida',cancelada:'Cancelada'}[st];
-  $('pendbtn').textContent = `Pendências (${bl.length})`;
-  $('tabs').innerHTML = TABS.map(([k,l],i)=>{ const n=bl.filter(p=>p.tab===k).length;
+  const chip=$('chip'); chip.className='chip '+st; chip.textContent=ST_LBL[st];
+  const nTab = k => k==='enc' ? (rasc?0:PE.length) : P.filter(p=>p.b&&p.tab===k).length;
+  const nTot = rasc ? bl.length : (['liberada','suspensa','vencida'].includes(st) ? PE.length : 0);
+  $('pendbtn').textContent = nTot ? `${nTot} pendência${nTot>1?'s':''} · Ver por aba` : 'Ver por aba';
+  $('tabs').innerHTML = TABS.map(([k,l],i)=>{ const n=rasc||k==='enc'?nTab(k):0;
     return `<button class="tab" role="tab" data-act="tab" data-tab="${k}" aria-selected="${k===cur}"><span class="n">${pad(i+1)}</span><span class="lbl">${l}</span>${n?`<span class="bd">${n}</span>`:''}</button>`; }).join('');
   const ix = TABS.findIndex(t=>t[0]===cur);
   $('step').textContent = `${ix+1} / ${TABS.length}`;
   $('bPrev').disabled = ix===0; $('bNext').disabled = ix===TABS.length-1;
-  const tabName = k => TABS.find(t=>t[0]===k)[1];
   const maxNv = state.usarMatriz ? [...riscosOn().map(r=>nivel(state.riscos[r[0]].p,state.riscos[r[0]].s)),...state.riscosExtra.map(x=>nivel(x.p,x.s))].filter(Boolean).sort((a,b)=>b.n-a.n)[0] : null;
+  const itens = (L,w) => L.length?`<ul class="det${w?' w':''}">${L.map(p=>`<li>${esc(p.msg)}</li>`).join('')}</ul>`:'';
+  const abas = TABS.filter(t=>t[0]!=='doc').map(([k,l],i)=>{
+    const lista = k==='enc' ? PE : P.filter(p=>p.tab===k), b=lista.filter(p=>p.b), w=lista.filter(p=>!p.b);
+    const sinal = k==='enc'&&rasc ? '<span class="qs na">após liberar</span>'
+      : b.length ? `<span class="qs pd">${b.length}</span>` : w.length ? `<span class="qs wa">${w.length} alerta${w.length>1?'s':''}</span>` : '<span class="qs ok">✓</span>';
+    return `<li><button class="ta ${k===cur?'cur':''}" data-act="tab" data-tab="${k}"><span class="tn">${pad(i+1)}</span><span>${l}</span>${sinal}</button>${k===cur&&!(k==='enc'&&rasc)?itens(b)+itens(w,true):''}</li>`; }).join('');
+  const depois = !rasc ? `<h3>Validade</h3><div class="valid">${validadeTxt()}</div>
+      ${['liberada','suspensa','vencida'].includes(st)?`<h3>Encerramento</h3>${PE.length?`<div class="gate no">${PE.length} pendência(s) para encerrar</div>${itens(PE)}`:'<div class="gate yes">Pronto para encerrar</div>'}`:''}` : '';
   $('side').innerHTML = `
-    <h3>Resumo</h3>
-    <dl class="kv"><dt>Número</dt><dd>${esc(state.meta.numero)}</dd><dt>Situação</dt><dd>${chip.textContent}</dd>
+    <h3>Documento</h3>
+    <dl class="kv"><dt>Número</dt><dd>${esc(state.meta.numero)}</dd><dt>Situação</dt><dd><b>${chip.textContent}</b></dd>
       <dt>Serviço</dt><dd>${esc(state.id.servico.slice(0,70))||'—'}${state.id.servico.length>70?'…':''}</dd>
-      <dt>Equipe</dt><dd>${state.equipe.length} executante(s)</dd>
-      ${maxNv?`<dt>Maior risco</dt><dd><span class="lv lv-${maxNv.c}">${maxNv.label} · ${maxNv.n}</span></dd>`:''}
-      ${state.meta.liberadaEm?`<dt>Válida até</dt><dd>${fmtDH(state.lib.fim)}</dd>`:''}</dl>
+      ${maxNv?`<dt>Maior risco</dt><dd><span class="lv lv-${maxNv.c}">${maxNv.label} · ${maxNv.n}</span></dd>`:''}</dl>
     ${ativOn().length?`<h3>Atividades críticas</h3><div class="mini">${ativOn().map(a=>`<span title="${esc(a.nome)}">${svg(a.icon)}${a.n}</span>`).join('')}</div>`:''}
-    <h3>Liberação</h3>
-    ${state.meta.status==='rascunho'?`<div class="gate ${bl.length?'no':'yes'}">${bl.length?`Bloqueada: ${bl.length} pendência(s)`:'Liberação permitida'}</div>`:`<div class="gate yes">PT ${chip.textContent.toLowerCase()}</div>`}
-    ${bl.length?`<h3>Impedem a liberação</h3><ul class="pl">${bl.map(p=>`<li><button data-act="tab" data-tab="${p.tab}"><i></i><span>${esc(p.msg)}</span><small>${tabName(p.tab)}</small></button></li>`).join('')}</ul>`:''}
-    ${wa.length?`<h3>Atenção</h3><ul class="pl w">${wa.map(p=>`<li><button data-act="tab" data-tab="${p.tab}"><i></i><span>${esc(p.msg)}</span><small>${tabName(p.tab)}</small></button></li>`).join('')}</ul>`:''}
+    ${rasc?`<h3>Preenchimento por aba</h3><ul class="abas">${abas}</ul>
+    <h3>Liberação</h3><div class="gate ${bl.length?'no':'yes'}">${bl.length?`Bloqueada: ${bl.length} pendência${bl.length>1?'s':''}`:'Liberação permitida'}</div>
+    <p class="hint" style="margin:8px 0 0">Toque numa aba para ver o que falta nela.</p>`:depois}
     <div class="mini-close" style="margin-top:16px"><button class="btn pendbtn" data-act="pend">Fechar</button></div>`;
 }
 function go(k){ cur=k; try{ localStorage.setItem(KEY+'-tab',k); }catch(e){} $('side').classList.remove('open'); $('panel').scrollTop=0; renderTab(); const t=document.querySelector(`.tab[data-tab="${k}"]`); t&&t.scrollIntoView({block:'nearest',inline:'nearest'}); }
@@ -1030,6 +1044,11 @@ EDROOT.addEventListener('click', e=>{
     if(v==='outro'){ const f=document.getElementById(fid(`etapas.${i}.riscos.${state.etapas[i].riscos.length-1}.nome`)); f&&f.focus(); } return; }
   if(a==='rmRiscoEt'){ state.etapas[+b.dataset.i].riscos.splice(+b.dataset.j,1); save(); return renderTab(); }
   if(a==='sugMed'){ const e=state.etapas[+b.dataset.i]; e.med=(tx(e.med)?tx(e.med)+'\n':'')+b.dataset.m; save(); return renderTab(); }
+  if(a==='ps'){ if(somenteLeitura()) return; set(b.dataset.k, +b.dataset.v); return renderTab(); }
+  if(a==='matriz'){ const d=$('dlg'); d.querySelector('.dlg-t').textContent='Matriz de risco 4×4';
+    d.querySelector('.dlg-b').innerHTML = matrizHTML(celulasMatriz()) + '<p class="hint" style="margin:10px 0 0">O número na bolinha é a quantidade de riscos das etapas naquela casa. Risco crítico (12–16) impede a liberação.</p>';
+    d.hidden=false; return; }
+  if(a==='sugQ'){ const sg=sugeridos(), k=b.dataset.q, base={m:'medidas',e:'epi',c:'epc'}[k]; sg[k].forEach(x=>state[base][x]=true); invalidarAssElab(); save(); return renderTab(); }
   if(a==='meusDados'){ if(b.dataset.b==='elaborador') invalidarAssElab(); usarMeusDados(b.dataset.b); return renderTab(); }
   if(a==='addRisco'){ state.riscosExtra.push({nome:'',p:null,s:null,medida:''}); save(); renderTab(); const f=document.getElementById(fid(`riscosExtra.${state.riscosExtra.length-1}.nome`)); f&&f.focus(); return; }
   if(a==='rmRisco'){ state.riscosExtra.splice(+b.dataset.i,1); save(); return renderTab(); }

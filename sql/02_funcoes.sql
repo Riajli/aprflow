@@ -152,6 +152,12 @@ returns timestamptz language sql stable as $$
               else (p_txt::timestamp at time zone 'America/Sao_Paulo') end;
 $$;
 
+-- Data e hora no horário de Brasília, para textos do histórico
+create or replace function public._brt(t timestamptz)
+returns text language sql stable as $$
+  select to_char(t at time zone 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI');
+$$;
+
 -- Texto do histórico: quem foi informado no documento e, se for outra pessoa, quem registrou no sistema
 create or replace function public._quem(p_acao text, p_informado text, p_logado text)
 returns text language sql immutable as $$
@@ -190,12 +196,15 @@ begin
   if coalesce(trim(dd#>>'{lib,liberador,cpf}'),'')     = '' then e := array_append(e, 'Liberador sem CPF'::text); end if;
   if coalesce(dd#>>'{lib,liberador,ass}','')           = '' then e := array_append(e, 'Liberador sem assinatura'::text); end if;
 
-  ini := public._dh(dd#>>'{lib,ini}');
-  fim := public._dh(dd#>>'{lib,fim}');
-  if ini is null or fim is null then e := array_append(e, 'Validade da PT não definida'::text);
-  elsif fim <= ini then e := array_append(e, 'Fim da validade antes do início'::text);
-  elsif fim - ini > interval '12 hours' then e := array_append(e, 'Validade maior que um turno (12 h)'::text);
-  end if;
+  -- A validade é definida pelo servidor no momento da liberação (até 12 h).
+  -- Única regra de datas: a APR não pode ter data de elaboração no futuro.
+  begin
+    if nullif(dd#>>'{id,elaboracao}','')::date > (now() at time zone 'America/Sao_Paulo')::date then
+      e := array_append(e, 'Data de elaboração da APR no futuro'::text);
+    end if;
+  exception when others then
+    e := array_append(e, 'Data de elaboração da APR inválida'::text);
+  end;
 
   if jsonb_typeof(dd#>'{lib,imped}') = 'object' then
     for r in select key, value from jsonb_each_text(dd#>'{lib,imped}') loop
@@ -491,6 +500,8 @@ begin
       'liberada_em', d.liberada_em, 'validade_fim', d.validade_fim, 'encerrada_em', d.encerrada_em,
       'excluido_em', d.excluido_em, 'excluido_por_nome', ex.nome,
       'apagar_em', d.excluido_em + interval '30 days',
+      'criado_por', d.criado_por,
+      'elab_assinado', coalesce(d.dados#>>'{lib,elaborador,ass}','') <> '',
       'ordem', case when coalesce(p_lixeira,false) then d.excluido_em else d.criado_em end) x
     from documentos d join clientes c on c.id = d.cliente_id
          left join usuarios us on us.id = d.criado_por left join usuarios ex on ex.id = d.excluido_por
@@ -578,11 +589,14 @@ begin
   if array_length(erros, 1) > 0 then
     raise exception 'LIBERACAO_BLOQUEADA' using hint = 'Há pendências que impedem a liberação.', detail = array_to_string(erros, ' | ');
   end if;
+  -- Início da validade = momento do clique em Liberar PT; vale por até 12 horas
   update documentos set status = 'liberada', liberada_em = now(), liberada_por = u.id,
-         validade_ini = public._dh(dados#>>'{lib,ini}'), validade_fim = public._dh(dados#>>'{lib,fim}'),
+         validade_ini = now(), validade_fim = now() + interval '12 hours',
+         dados = jsonb_set(jsonb_set(dados, '{lib,ini}', to_jsonb(now()), true), '{lib,fim}', to_jsonb(now() + interval '12 hours'), true),
          atualizado_em = now()
    where id = p_id returning * into d;
-  perform public._evento(d.id, public._quem('PT liberada', d.dados#>>'{lib,liberador,nome}', u.nome));
+  perform public._evento(d.id, public._quem('PT liberada', d.dados#>>'{lib,liberador,nome}', u.nome)
+          || format(' · válida de %s até %s (horário de Brasília)', public._brt(d.validade_ini), public._brt(d.validade_fim)));
   perform public._log(u, 'documento_liberado', d.cliente_id, d.id, jsonb_build_object('numero', d.numero));
   select * into d from documentos where id = p_id;
   return public._doc_json(d);
@@ -640,9 +654,13 @@ begin
   if not public._cpf_valido(d.dados#>>'{enc,resp,cpf}') then
     raise exception 'ENCERRAMENTO_INCOMPLETO' using hint = 'Informe um CPF válido do responsável pelo encerramento.';
   end if;
+  if d.dados#>>'{enc,situacao}' = 'nao' and coalesce(trim(d.dados#>>'{enc,obs}'),'') = '' then
+    raise exception 'ENCERRAMENTO_INCOMPLETO' using hint = 'Informe nas observações o motivo de o serviço não ter sido concluído.';
+  end if;
   update documentos set status = 'encerrada', encerrada_em = now(), encerrada_por = u.id, atualizado_em = now()
    where id = p_id;
   perform public._evento(p_id, public._quem('PT encerrada', d.dados#>>'{enc,resp,nome}', u.nome) ||
+          format(' em %s (horário de Brasília)', public._brt(now())) ||
           case when d.dados#>>'{enc,situacao}' = 'nao' then ' · serviço não concluído' else ' · serviço concluído' end);
   perform public._log(u, 'documento_encerrado', d.cliente_id, d.id);
   select * into d from documentos where id = p_id;
@@ -692,9 +710,15 @@ end $$;
 
 -- Rascunho e cancelado: gestor ou administrador. Encerrado: só o administrador, digitando o número.
 -- Liberado ou suspenso: precisa ser encerrado antes.
-create or replace function public.excluir_documento(p_token text, p_id uuid, p_confirmacao text default null)
+drop function if exists public.excluir_documento(text, uuid, text);
+-- Rascunho e cancelado: gestor, administrador ou quem criou. Encerrado: só o administrador, digitando o número.
+-- Liberado ou suspenso: precisa ser encerrado antes.
+-- p_definitivo: rascunho sem assinatura do elaborador pode ser apagado na hora, sem passar pela lixeira.
+create or replace function public.excluir_documento(p_token text, p_id uuid, p_confirmacao text default null,
+                                                   p_definitivo boolean default false)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare u public.usuarios := public._sessao(p_token); d public.documentos := public._doc(u, p_id);
+        dono boolean := u.perfil in ('admin','gestor') or d.criado_por = u.id;
 begin
   if d.status in ('liberada','suspensa') then
     raise exception 'EXCLUSAO_BLOQUEADA' using hint = 'PT liberada ou suspensa não pode ser apagada. Encerre a PT antes.';
@@ -705,9 +729,19 @@ begin
     if upper(trim(coalesce(p_confirmacao,''))) <> upper(d.numero) then
       raise exception 'CONFIRMACAO_INVALIDA' using hint = 'Digite o número do documento exatamente como aparece para confirmar.';
     end if;
-  elsif u.perfil not in ('admin','gestor') then
-    raise exception 'SEM_PERMISSAO' using hint = 'Só o gestor ou o administrador pode apagar documentos.';
+  elsif not dono or u.perfil = 'consulta' then
+    raise exception 'SEM_PERMISSAO' using hint = 'Só o gestor, o administrador ou quem criou o documento pode apagá-lo.';
   end if;
+
+  if coalesce(p_definitivo, false) then
+    if d.status <> 'rascunho' or coalesce(d.dados#>>'{lib,elaborador,ass}','') <> '' then
+      raise exception 'EXCLUSAO_BLOQUEADA' using hint = 'Só um rascunho ainda não assinado pelo elaborador pode ser apagado na hora. Envie para a lixeira.';
+    end if;
+    delete from documentos where id = p_id;
+    perform public._log(u, 'documento_apagado_definitivo', d.cliente_id, null, jsonb_build_object('numero', d.numero, 'documento_id', d.id));
+    return jsonb_build_object('numero', d.numero, 'definitivo', true);
+  end if;
+
   update documentos set excluido_em = now(), excluido_por = u.id where id = p_id;
   perform public._evento(p_id, format('Documento enviado para a lixeira por %s', u.nome));
   perform public._log(u, 'documento_para_lixeira', d.cliente_id, d.id, jsonb_build_object('numero', d.numero, 'status', d.status));
@@ -797,7 +831,7 @@ grant execute on function public.salvar_usuario(text, uuid, text, text, text, uu
 grant execute on function public.completar_cadastro(text, text, text, text, text) to anon;
 grant execute on function public.criar_documento(text, uuid)              to anon;
 grant execute on function public.listar_documentos(text, text, text, boolean) to anon;
-grant execute on function public.excluir_documento(text, uuid, text)     to anon;
+grant execute on function public.excluir_documento(text, uuid, text, boolean) to anon;
 grant execute on function public.restaurar_documento(text, uuid)          to anon;
 grant execute on function public.obter_documento(text, uuid)              to anon;
 grant execute on function public.salvar_documento(text, uuid, jsonb)      to anon;

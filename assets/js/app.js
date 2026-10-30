@@ -4,7 +4,8 @@
   const esc = API.esc;
   const ST = { '':'Todos', rascunho:'Rascunho', liberada:'Liberada', suspensa:'Suspensa', encerrada:'Encerrada', cancelada:'Cancelada' };
   const pad = n => String(n).padStart(2,'0');
-  const fmtDH = s => { if(!s) return '—'; const d=new Date(s); return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const FMT_SP = new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+  const fmtDH = s => { if(!s) return '—'; const d=new Date(s); return isNaN(d) ? '—' : FMT_SP.format(d).replace(',', ''); };   /* horário de Brasília */
 
   let U;
   try { U = await API.exigirLogin(); }
@@ -13,7 +14,8 @@
 
   el('whoNome').textContent = U.nome;
   el('whoInfo').textContent = API.PERFIS[U.perfil] + (U.cliente_nome ? ' · ' + U.cliente_nome : '');
-  if(!API.pode(U, 'usuarios')){ el('lnkAdmin').textContent = 'Minha senha'; el('lnkAdmin').href = 'admin.html#senha'; }
+  if(!API.pode(U, 'usuarios')){ el('lnkAdminT').textContent = 'Minha conta'; el('lnkAdmin').href = 'admin.html#senha'; }
+  el('whoIni').textContent = API.iniciais(U.nome);
   el('bNovo').hidden = !API.pode(U, 'editar');
   el('bDuplicar').hidden = !API.pode(U, 'editar');
   el('bSair').addEventListener('click', async () => { if(Editor.temPendente()) await Editor.salvarAgora(); API.sair(); });
@@ -47,7 +49,8 @@
     volta: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>'
   };
   /* Quem pode enviar cada documento para a lixeira */
-  const podeApagar = d => (['rascunho','cancelada'].includes(d.status) && ['admin','gestor'].includes(U.perfil)) || (d.status === 'encerrada' && U.perfil === 'admin');
+  const podeApagar = d => (['rascunho','cancelada'].includes(d.status) && U.perfil !== 'consulta' && (['admin','gestor'].includes(U.perfil) || d.criado_por === U.id)) || (d.status === 'encerrada' && U.perfil === 'admin');
+  const podeApagarJa = d => d.status === 'rascunho' && !d.elab_assinado;   /* rascunho sem a assinatura do elaborador */
   const podeRestaurar = d => ['admin','gestor'].includes(U.perfil) && (d.status !== 'encerrada' || U.perfil === 'admin');
   const diasRestantes = d => Math.max(0, Math.ceil((new Date(d.apagar_em) - new Date()) / 864e5));
 
@@ -145,19 +148,30 @@
   });
 
   /* ---------- Lixeira ---------- */
-  let excluindo = null;
-  function abrirExclusao(d){
-    if(!d) return;
-    excluindo = d;
-    const enc = d.status === 'encerrada';
-    el('delT').textContent = `Enviar ${d.numero} para a lixeira?`;
-    el('delTxt').textContent = enc
+  let excluindo = null, definitivo = false;
+  function textoExclusao(){
+    const d = excluindo, enc = d.status === 'encerrada';
+    el('delT').textContent = definitivo ? `Apagar ${d.numero} definitivamente?` : `Enviar ${d.numero} para a lixeira?`;
+    el('delTxt').textContent = definitivo
+      ? 'O rascunho é apagado agora, sem passar pela lixeira. Não é possível desfazer.'
+      : enc
       ? 'Esta PT está encerrada e é um registro de que o trabalho foi autorizado. Ela ficará na lixeira por 30 dias e depois será apagada de vez.'
       : 'O documento sai da lista e fica na lixeira por 30 dias. Nesse prazo, pode ser restaurado. Depois, é apagado de vez.';
+    el('delOk').textContent = definitivo ? 'Apagar definitivamente' : 'Enviar para a lixeira';
+    el('delOk').className = definitivo ? 'btn bad' : 'btn warn';
+    el('delJa').hidden = definitivo || !podeApagarJa(d);
+    el('delJaTxt').hidden = definitivo || !podeApagarJa(d);
+  }
+  function abrirExclusao(d){
+    if(!d) return;
+    excluindo = d; definitivo = false;
+    const enc = d.status === 'encerrada';
+    textoExclusao();
     el('delConfF').hidden = !enc; el('delConf').value = ''; el('delConfL').textContent = `Digite ${d.numero} para confirmar`;
     el('delErro').hidden = true; el('delDlg').hidden = false;
     (enc ? el('delConf') : el('delOk')).focus();
   }
+  el('delJa').addEventListener('click', () => { definitivo = true; el('delErro').hidden = true; textoExclusao(); el('delOk').focus(); });
   el('delCancelar').addEventListener('click', () => { el('delDlg').hidden = true; excluindo = null; });
   el('fDel').addEventListener('submit', async e => {
     e.preventDefault(); if(!excluindo) return;
@@ -166,10 +180,10 @@
       el('delErro').textContent = 'O número digitado não confere com o documento.'; el('delErro').hidden = false; return;
     }
     try {
-      await API.call('excluir_documento', { p_id: excluindo.id, p_confirmacao: el('delConf').value || null });
+      await API.call('excluir_documento', { p_id: excluindo.id, p_confirmacao: el('delConf').value || null, p_definitivo: definitivo });
       el('delDlg').hidden = true; sel.delete(excluindo.id);
-      API.toast(`${excluindo.numero} enviado para a lixeira. Pode ser restaurado por 30 dias.`);
-      excluindo = null; carregar();
+      API.toast(definitivo ? `${excluindo.numero} apagado definitivamente.` : `${excluindo.numero} enviado para a lixeira. Pode ser restaurado por 30 dias.`);
+      excluindo = null; definitivo = false; carregar();
     } catch(err){ el('delErro').textContent = err.message; el('delErro').hidden = false; }
   });
   async function restaurar(d){
