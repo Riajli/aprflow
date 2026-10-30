@@ -15,7 +15,12 @@ jobs:
         env:
           DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          docker run --rm -e DB_URL postgres:17 sh -c 'pg_dump "$DB_URL" --schema=public --no-owner --no-privileges' > aprflow.sql
+          URL="$(printf '%s' "$DB_URL" | tr -d '[:space:]')"
+          case "$URL" in
+            postgres://*|postgresql://*) ;;
+            *) echo "::error::O segredo SUPABASE_DB_URL está vazio ou não começa com postgresql://. Copie de novo o endereço do Session pooler."; exit 1 ;;
+          esac
+          docker run --rm -e URL="$URL" postgres:17 sh -c 'pg_dump "$URL" --schema=public --no-owner --no-privileges' > aprflow.sql
           test -s aprflow.sql
       - name: Criptografar
         env:
