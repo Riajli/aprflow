@@ -45,13 +45,15 @@
   const podeUsuarios = API.pode(U, 'usuarios'), podeClientes = API.pode(U, 'clientes');
   if(!podeUsuarios) el('lnkAdminT').textContent = 'Minha conta';
   el('tUsuarios').hidden = !podeUsuarios;
-  el('tClientes').hidden = !podeClientes;
+  const gestor = U.perfil === 'gestor';
+  el('tClientes').hidden = !(podeClientes || gestor);
+  if(gestor) el('tClientes').textContent = 'Minha empresa';
 
   /* ---------- Seções ---------- */
   const SEC = { usuarios:'sUsuarios', clientes:'sClientes', senha:'sSenha' };
   function mostrar(sec){
     if(sec === 'usuarios' && !podeUsuarios) sec = 'senha';
-    if(sec === 'clientes' && !podeClientes) sec = podeUsuarios ? 'usuarios' : 'senha';
+    if(sec === 'clientes' && !podeClientes && !gestor) sec = podeUsuarios ? 'usuarios' : 'senha';
     Object.entries(SEC).forEach(([k,id]) => { el(id).hidden = k !== sec; });
     el('admTabs').querySelectorAll('[data-sec]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.sec === sec)));
     if(sec === 'usuarios') carregarUsuarios();
@@ -63,7 +65,7 @@
   let clientes = [];
   const perfisPermitidos = U.perfil === 'admin' ? Object.keys(API.PERFIS) : Object.keys(API.PERFIS).filter(p => p !== 'admin');
   el('uPerfil').innerHTML = perfisPermitidos.map(p => `<option value="${p}">${API.PERFIS[p]}</option>`).join('');
-  el('perfisAjuda').innerHTML = `<b>Perfis:</b> Gestor cadastra usuários e faz tudo na empresa · Técnico elabora a APR · Liberador preenche e libera a PT · Consulta só visualiza.${U.perfil==='admin'?' Administrador da plataforma vê todas as empresas.':''}`;
+  el('perfisAjuda').innerHTML = `<b>Perfis:</b> Gestor cadastra usuários e faz tudo na empresa · Técnico elabora a APR e também pode liberar a PT · Liberador confere e libera a PT, sem alterar a APR · Consulta só visualiza.${U.perfil==='admin'?' Administrador da plataforma vê todas as empresas.':''}`;
   function ajustarCliente(){
     el('uClienteF').hidden = U.perfil !== 'admin' || el('uPerfil').value === 'admin';
     const reg = API.exigeRegistro(el('uPerfil').value); el('uRtF').hidden = !reg; el('uRnF').hidden = !reg;
@@ -128,7 +130,25 @@
 
   /* ---------- Clientes ---------- */
   let listaClientes = [];
-  function limparCliente(){ el('cId').value=''; el('cNome').value=''; el('cCnpj').value=''; el('cAtivo').checked=true; el('cErro').hidden=true; el('cCnpjErr').hidden=true; el('cTitulo').textContent='Novo cliente'; escreverEndereco({}); }
+  function limparCliente(){ el('cId').value=''; el('cNome').value=''; el('cCnpj').value=''; el('cAtivo').checked=true; el('cErro').hidden=true; el('cCnpjErr').hidden=true; el('cTitulo').textContent='Novo cliente'; escreverEndereco({}); el('cCodigo').value=''; escreverTels([],true); }
+  /* Telefones de emergência do cadastro */
+  function linhaTel(t){ const d=document.createElement('div'); d.className='tel';
+    d.innerHTML=`<label class="fld"><span>Serviço / contato</span><input type="text" data-ts maxlength="80" value="${esc(t.s||'')}" placeholder="Ex.: SAMU"></label><label class="fld"><span>Telefone</span><input type="tel" data-tt maxlength="30" inputmode="tel" value="${esc(t.t||'')}" placeholder="Ex.: 192"></label><button type="button" class="btn ghost" style="align-self:end" aria-label="Remover telefone">✕</button>`;
+    d.querySelector('button').addEventListener('click', () => d.remove()); return d; }
+  function escreverTels(L,padrao){ const b=el('cTels'); b.innerHTML=''; (L&&L.length?L:padrao?[{s:'SAMU',t:'192'},{s:'Bombeiros',t:'193'},{s:'Polícia Militar',t:'190'}]:[]).forEach(t=>b.appendChild(linhaTel(t))); }
+  function lerTels(){ return [...el('cTels').querySelectorAll('.tel')].map(d=>({s:d.querySelector('[data-ts]').value.trim(), t:d.querySelector('[data-tt]').value.trim()})).filter(t=>t.s||t.t); }
+  el('cAddTel').addEventListener('click', () => { el('cTels').appendChild(linhaTel({})); el('cTels').lastElementChild.querySelector('input').focus(); });
+  function abrirCliente(c){
+    el('cId').value=c.id; el('cNome').value=c.nome; el('cCnpj').value=c.cnpj||''; el('cAtivo').checked=c.ativo; escreverEndereco(c.endereco);
+    el('cCodigo').value=c.codigo_form||''; escreverTels(c.telefones||[]);
+    el('cTitulo').textContent = gestor ? 'Dados da empresa' : 'Editar cliente'; el('cErro').hidden=true;
+  }
+  if(gestor){
+    /* gestor altera só os telefones de emergência e o código do formulário */
+    ['cNome','cCnpj','cCep','cLog','cNum','cComp','cBairro','cCidade','cUf','cAtivo'].forEach(id=>{ el(id).disabled=true; });
+    el('cNovo').hidden=true; el('cLimpar').hidden=true; el('sClientes').querySelector('h2').textContent='Minha empresa';
+  }
+  escreverTels([],true);
   el('cCep').addEventListener('input', () => { const v=maskCEP(el('cCep').value); el('cCep').value=v; const d=v.replace(/\D/g,''); if(d.length===8) buscarCep(d); });
   async function carregarClientes(){
     try {
@@ -137,13 +157,13 @@
         ${listaClientes.map(c => `<tr data-id="${c.id}" tabindex="0"><td><b>${esc(c.nome)}</b><div class="muted">${esc(c.cnpj||'Sem CNPJ')}${cidadeUf(c.endereco)?' · '+esc(cidadeUf(c.endereco)):''}</div></td>
           <td>${c.usuarios}</td><td>${c.documentos}</td><td><span class="st ${c.ativo?'liberada':'cancelada'}">${c.ativo?'Ativo':'Inativo'}</span></td></tr>`).join('')}
         </tbody></table></div>` : '<div class="empty">Nenhum cliente cadastrado. Cadastre o primeiro ao lado.</div>';
+      if(gestor && listaClientes[0]) abrirCliente(listaClientes[0]);
     } catch(e){ el('cLista').innerHTML = `<div class="msg bad">${esc(e.message)}</div>`; }
   }
   el('cLista').addEventListener('click', e => {
     const tr = e.target.closest('tr[data-id]'); if(!tr) return;
     const c = listaClientes.find(x => x.id === tr.dataset.id); if(!c) return;
-    el('cId').value=c.id; el('cNome').value=c.nome; el('cCnpj').value=c.cnpj||''; el('cAtivo').checked=c.ativo; escreverEndereco(c.endereco);
-    el('cTitulo').textContent='Editar cliente'; el('cErro').hidden=true; el('cNome').focus();
+    abrirCliente(c); if(!gestor) el('cNome').focus();
   });
   el('cCnpj').addEventListener('input', () => { const v = maskCNPJ(el('cCnpj').value); el('cCnpj').value = v; const bad = v.length >= 18 && !cnpjOk(v); el('cCnpj').classList.toggle('invalid', bad); el('cCnpjErr').hidden = !bad; });
   el('cNovo').addEventListener('click', () => { limparCliente(); el('cNome').focus(); });
@@ -153,8 +173,9 @@
     const cnpj = el('cCnpj').value.trim();
     if(cnpj && !cnpjOk(cnpj)){ el('cErro').textContent = 'CNPJ inválido. Confira os números.'; el('cErro').hidden = false; return; }
     try {
-      await API.call('salvar_cliente', { p_id: el('cId').value || null, p_nome: el('cNome').value, p_cnpj: cnpj, p_ativo: el('cAtivo').checked, p_endereco: lerEndereco() });
-      API.toast('Cliente salvo.'); limparCliente(); carregarClientes();
+      await API.call('salvar_cliente', { p_id: el('cId').value || null, p_nome: el('cNome').value, p_cnpj: cnpj, p_ativo: el('cAtivo').checked, p_endereco: lerEndereco(),
+        p_telefones: lerTels(), p_codigo: el('cCodigo').value.trim() || null });
+      API.toast(gestor ? 'Dados da empresa salvos.' : 'Cliente salvo.'); if(!gestor) limparCliente(); carregarClientes();
     } catch(err){ el('cErro').textContent = err.message; el('cErro').hidden = false; }
   });
 

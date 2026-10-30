@@ -82,6 +82,12 @@
               <label class="fld a-uf"><span>UF</span><input type="text" id="cUf" maxlength="2" autocomplete="off"></label>
             </div>
           </div>
+          <label class="fld"><span>Código do formulário</span><input type="text" id="cCodigo" maxlength="40" placeholder="Opcional. Ex.: FOR-SST-012" autocomplete="off"><em class="hint" style="margin:2px 0 0;font-style:normal">Entra automaticamente no campo "Código do formulário" da aba 01 de cada APR nova.</em></label>
+          <div class="fld"><span>Telefones de emergência</span>
+            <p class="hint" style="margin:0 0 6px">Vêm preenchidos na aba 06 Emergência de cada APR nova. O técnico pode alterar ou apagar.</p>
+            <div class="stack" id="cTels" style="gap:8px"></div>
+            <div><button type="button" class="btn btn-sm" id="cAddTel" style="margin-top:8px">+ Telefone</button></div>
+          </div>
           <label class="ck" style="padding:0"><input type="checkbox" id="cAtivo" checked><span>Cliente ativo (usuários podem entrar)</span></label>
           <div class="msg bad" id="cErro" hidden></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" type="submit">Salvar</button><button class="btn ghost" type="button" id="cLimpar">Limpar</button></div>

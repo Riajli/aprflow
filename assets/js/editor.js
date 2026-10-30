@@ -222,7 +222,7 @@ function novo(){
     riscos:{},riscosExtra:[],impExtra:[],medidas:{},medidaOutra:'',epi:{},epc:{},epiOutro:'',epcOutro:'',
     equipe:[],
     emerg:{planos:[...PLANOS],tel:[{s:'',t:''},{s:'',t:''},{s:'',t:''},{s:'',t:''}],hospitais:[{nome:'',addr:END0(),tel:'',km:'',min:''}]},
-    lib:{req:{},gerais:{},ini:'',fim:'',motivo:'',elaborador:{nome:'',funcao:'',cpf:'',regTipo:'MTE',regNum:'',ass:null,em:null},liberador:{nome:'',funcao:'',cpf:'',ass:null,em:null}},
+    lib:{imped:{},req:{},gerais:{},ini:'',fim:'',motivo:'',elaborador:{nome:'',funcao:'',cpf:'',regTipo:'MTE',regNum:'',ass:null,em:null},liberador:{nome:'',funcao:'',cpf:'',ass:null,em:null}},
     enc:{chk:{},situacao:'concluido',obs:'',resp:{nome:'',funcao:'',cpf:'',ass:null,em:null}}
   };
 }
@@ -289,13 +289,26 @@ async function salvarAgora(){
 window.addEventListener('beforeunload', e=>{ if(ED.pendente){ salvarAgora(); e.preventDefault(); e.returnValue=''; } });
 function get(p){ return p.split('.').reduce((o,k)=>o==null?undefined:o[k], state); }
 function set(p,v){ const ks=p.split('.'); let o=state; for(let i=0;i<ks.length-1;i++){ if(o[ks[i]]==null) o[ks[i]]={}; o=o[ks[i]]; } o[ks[ks.length-1]]=v;
-  if(alteraAPR(p)) invalidarAssElab(); save(); }
-/* Caminhos que fazem parte da APR (abas 01 a 06) ou dos dados do elaborador */
-const alteraAPR = p => !/^(lib|enc)\./.test(p) || (/^lib\.elaborador\./.test(p) && !/\.(ass|em)$/.test(p));
+  if(alteraAPR(p)) invalidarAssElab(); else if(alteraConf(p)) invalidarAssLib(); save(); }
+/* Caminhos que fazem parte da APR (abas 01 a 06) ou dos dados do elaborador.
+   As assinaturas dos executantes são colhidas na liberação e não contam como alteração da APR. */
+const alteraAPR = p => (!/^(lib|enc)\./.test(p) && !/^equipe\.\d+\.(ass|em)$/.test(p)) || (/^lib\.elaborador\./.test(p) && !/\.(ass|em)$/.test(p));
+/* Caminhos da liberação que, alterados depois da assinatura do liberador, exigem que ele assine de novo */
+const alteraConf = p => /^lib\.(imped|req|gerais)\./.test(p) || /^lib\.liberador\.(nome|funcao|cpf)$/.test(p) || /^equipe\.\d+\.ass$/.test(p);
+/* Apaga as confirmações da liberação e as assinaturas dos executantes e do liberador */
+function limparLiberacao(){
+  const L=state.lib; L.imped={}; L.req={}; L.gerais={}; L.liberador.ass=null; L.liberador.em=null;
+  state.equipe.forEach(w=>{ w.ass=null; w.em=null; });
+}
 function invalidarAssElab(){
   if(!state || state.meta.status!=='rascunho' || !state.lib.elaborador.ass) return;
-  state.lib.elaborador.ass=null; state.lib.elaborador.em=null;
-  API.toast('A APR foi alterada depois da assinatura do elaborador. A assinatura foi removida: confira e assine de novo.','bad');
+  state.lib.elaborador.ass=null; state.lib.elaborador.em=null; limparLiberacao();
+  API.toast('A APR foi alterada depois da assinatura do elaborador. Todas as assinaturas (elaborador, executantes e liberador) e as conferências da liberação foram apagadas: confira e assine de novo.','bad');
+}
+function invalidarAssLib(){
+  if(!state || state.meta.status!=='rascunho' || !state.lib.liberador.ass) return;
+  state.lib.liberador.ass=null; state.lib.liberador.em=null;
+  API.toast('A liberação foi alterada depois da assinatura do liberador. A assinatura dele foi removida: assine de novo, por último.','bad');
 }
 const fid = k => 'f_'+k.replace(/\./g,'_');
 const evento = txt => state.meta.eventos.push({em:new Date().toISOString(),txt});
@@ -406,12 +419,11 @@ function pend(){
     if(!w.nome.trim()) add('equipe',`Trabalhador ${i+1}: informe o nome`);
     if(!tx(w.funcao)) add('equipe',`${nm}: informe a função`);
     tr.forEach(t=>{ if(!w.trein?.[t]) add('equipe',`${nm}: sem treinamento ${TREIN[t]} válido`); });
-    if(!w.aso) add('equipe',`${nm}: ASO apto não confirmado`);
-    if(!w.ass) add('equipe',`${nm}: falta assinatura de ciência`); });
+    if(!w.aso) add('equipe',`${nm}: ASO apto não confirmado`); });
   /* 06 Emergência */
-  if(!s.emerg.tel.some(t=>t.t.trim())) add('emerg','Informe ao menos um telefone de emergência do local');
-  if(!s.emerg.hospitais.some(h=>tx(h.nome)&&tx(h.addr.log)&&tx(h.addr.cidade))) add('emerg','Informe ao menos um hospital de referência com endereço (logradouro e cidade)');
-  s.emerg.hospitais.forEach(h=>{ if(h.nome.trim()&&!h.tel.trim()) add('emerg',`${h.nome}: informe o telefone do hospital`,false); });
+  if(!s.emerg.tel.some(t=>t.t.trim())) add('emerg','Informe ao menos um telefone de emergência do local',true,'g2');
+  if(!s.emerg.hospitais.some(h=>tx(h.nome)&&tx(h.addr.log)&&tx(h.addr.cidade))) add('emerg','Informe ao menos um hospital de referência com endereço (logradouro e cidade)',true,'h0');
+  s.emerg.hospitais.forEach((h,i)=>{ if(h.nome.trim()&&!h.tel.trim()) add('emerg',`${h.nome}: informe o telefone do hospital`,false,'h'+i); });
   /* 07 Liberação */
   if(!tx(L.elaborador.nome)) add('lib','Elaborador da APR: informe o nome',true,'l1');
   if(!tx(L.elaborador.regNum)) add('lib',`Elaborador da APR: informe o registro ${L.elaborador.regTipo}`,true,'l1');
@@ -422,11 +434,12 @@ function pend(){
     else if(v!=='ausente') add('lib',`Responda a verificação: ${c.perg}`,true,'l2'); });
   requisitos().forEach(r=>{ if(!L.req[r.key]) add('lib',`Requisito: ${r.txt}`,true,'l3'); });
   GERAIS.forEach(g=>{ if(!L.gerais[g[0]]) add('lib',`Conferência no local: ${g[1]}`,true,'l3'); });
-  if(!tx(L.liberador.nome)) add('lib','Liberador da PT: informe o nome',true,'l5');
-  if(!tx(L.liberador.cpf)) add('lib','Liberador da PT: informe o CPF',true,'l5');
-  else if(!cpfOk(L.liberador.cpf)) add('lib','Liberador da PT: CPF inválido',true,'l5');
-  if(!L.liberador.ass) add('lib','Liberador da PT: falta assinatura',true,'l5');
-  if(tx(L.elaborador.nome) && tx(L.elaborador.nome).toLowerCase()===tx(L.liberador.nome).toLowerCase()) add('lib','Elaborador e liberador são a mesma pessoa',false,'l5');
+  s.equipe.forEach((w,i)=>{ if(!w.ass) add('lib',`${tx(w.nome)||`Executante ${i+1}`}: falta assinatura de ciência`,true,'l4'); });
+  if(!tx(L.liberador.nome)) add('lib','Liberador da PT: informe o nome',true,'l6');
+  if(!tx(L.liberador.cpf)) add('lib','Liberador da PT: informe o CPF',true,'l6');
+  else if(!cpfOk(L.liberador.cpf)) add('lib','Liberador da PT: CPF inválido',true,'l6');
+  if(!L.liberador.ass) add('lib','Liberador da PT: falta assinatura (assina por último)',true,'l6');
+  if(tx(L.elaborador.nome) && tx(L.elaborador.nome).toLowerCase()===tx(L.liberador.nome).toLowerCase()) add('lib','Elaborador e liberador são a mesma pessoa',false,'l6');
   return P;
 }
 /* Pendências do encerramento (aba 08) */
@@ -681,7 +694,7 @@ T.equipe = () => {
     <div class="fld"><span>Treinamentos válidos</span><div class="trs">${Object.keys(TREIN).map(t=>{ const has=w.trein?.[t], need=tr.includes(t);
       return `<label class="tr ${has?'has':need?'need':''}"><input type="checkbox" id="${fid(`equipe.${i}.trein.${t}`)}" data-k="equipe.${i}.trein.${t}" ${has?'checked':''}>${TREIN[t]}${need&&!has?' · exigido':''}</label>`; }).join('')}</div></div>
     ${chk(`equipe.${i}.aso`,'ASO válido e apto para a função')}
-    ${sigBlock(`equipe.${i}.ass`,'Ciência da APR')}
+    <p class="hint" style="margin:0">${w.ass?`✓ Ciência assinada em ${fmtDH(w.em)}, na aba 07 Liberação da PT.`:'A assinatura de ciência é colhida na aba 07 Liberação da PT, no local, por quem libera.'}</p>
   </section>`).join('')}
   <button class="addcard" data-act="addWorker">+ Incluir executante</button>
 </div>`;
@@ -706,31 +719,23 @@ function hospMapa(h,orig){
     </div>`;
 }
 T.emerg = () => {
-  const orig = origemRota();
-
-  return `
-<div class="cols w2">
-  <section class="box"><h2 class="qt" style="margin-bottom:8px">Plano de resposta a emergências</h2><p class="hint">Texto padrão editável. No sistema final, cada cliente define o seu.</p>
-    <div class="stack">${state.emerg.planos.map((p,i)=>inp(`emerg.planos.${i}`,`Plano ${'ABCD'[i]}`,{area:1,rows:2})).join('')}</div>
-  </section>
-  <section class="box"><h2 class="qt" style="margin-bottom:8px">Telefones de emergência</h2><p class="hint">Preenchidos por quem emite o documento, conforme o local do serviço.</p>
+  const orig = origemRota(), H = state.emerg.hospitais;
+  const rota = orig ? `Rota a partir ${origemTipo()==='local'?'do endereço da atividade':'do endereço da empresa (o endereço da atividade está em branco)'}: <b>${esc(orig)}</b>` : 'Informe o endereço da atividade ou da empresa na aba Identificação para traçar a rota.';
+  return quadro(1,'Plano de resposta a emergências','g1',`<p class="hint">Texto padrão editável.</p>
+    <div class="stack">${state.emerg.planos.map((p,i)=>inp(`emerg.planos.${i}`,`Plano ${'ABCD'[i]}`,{area:1,rows:2})).join('')}</div>`)
+  + quadro(2,'Telefones de emergência','g2',`<p class="hint">Vêm do cadastro da empresa e podem ser alterados ou apagados conforme o local do serviço.</p>
     <div class="stack">
-      ${state.emerg.tel.map((t,i)=>`<div class="tel">${inp(`emerg.tel.${i}.s`,'Serviço / contato')}${inp(`emerg.tel.${i}.t`,'Telefone',{type:'tel',inputmode:'tel'})}<button class="btn ghost" style="align-self:end" data-act="rmTel" data-i="${i}" aria-label="Remover telefone">✕</button></div>`).join('')}
+      ${state.emerg.tel.map((t,i)=>`<div class="tel">${inp(`emerg.tel.${i}.s`,'Serviço / contato')}${inp(`emerg.tel.${i}.t`,'Telefone',{type:'tel',inputmode:'tel'})}<button class="ibtn" style="align-self:end" data-act="rmTel" data-i="${i}" title="Remover telefone" aria-label="Remover telefone ${i+1}">${ICL}</button></div>`).join('')}
       <div><button class="btn" data-act="addTel">+ Telefone</button></div>
-    </div>
-  </section>
-</div>
-<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:22px"><h2 class="qt">Hospitais de referência</h2><span class="hint" style="margin:0">${orig?`Rota a partir ${origemTipo()==='local'?'do endereço da atividade':'do endereço da empresa (o endereço da atividade está em branco)'}: <b>${esc(orig)}</b>`:'Informe o endereço da atividade ou da empresa na aba Identificação para traçar a rota.'}</span></div>
-<div class="hgrid">
-  ${state.emerg.hospitais.map((h,i)=>`<section class="box hosp" id="hosp-${i}">
-    <div style="display:flex;align-items:center;gap:8px"><h3 class="qt" style="flex:1">Hospital ${i+1}</h3>${state.emerg.hospitais.length>1?`<button class="btn ghost" data-act="rmHosp" data-i="${i}" aria-label="Remover hospital ${i+1}">Remover</button>`:''}</div>
-    ${inp(`emerg.hospitais.${i}.nome`,'Hospital ou pronto-socorro',{req:1})}
-    ${endBlock(`emerg.hospitais.${i}.addr`,'Endereço',{req:1})}
-    <div class="row3">${inp(`emerg.hospitais.${i}.tel`,'Telefone do hospital',{type:'tel',inputmode:'tel'})}<div class="row3" style="gap:8px">${inp(`emerg.hospitais.${i}.km`,'Distância (km)',{inputmode:'decimal',map:1})}${inp(`emerg.hospitais.${i}.min`,'Tempo (min)',{inputmode:'numeric',map:1})}</div></div>
-    <div class="mapslot">${hospMapa(h,orig)}</div>
-  </section>`).join('')}
-  <button class="addcard" data-act="addHosp">+ Incluir hospital</button>
-</div>`;
+    </div>`)
+  + H.map((h,i)=>quadro(i+3,`Hospital${H.length>1?` ${i+1}`:''} de referência`,'h'+i,`<p class="hint">${rota}</p>
+    <div class="hq"><div class="stack">
+      ${inp(`emerg.hospitais.${i}.nome`,'Hospital ou pronto-socorro',{req:1})}
+      ${endBlock(`emerg.hospitais.${i}.addr`,'Endereço',{req:1})}
+      <div class="row3">${inp(`emerg.hospitais.${i}.tel`,'Telefone do hospital',{type:'tel',inputmode:'tel'})}<div class="row3" style="gap:8px">${inp(`emerg.hospitais.${i}.km`,'Distância (km)',{inputmode:'decimal',map:1})}${inp(`emerg.hospitais.${i}.min`,'Tempo (min)',{inputmode:'numeric',map:1})}</div></div>
+    </div><div class="mapslot">${hospMapa(h,orig)}</div></div>`,
+    {id:`hosp-${i}`, acoes: H.length>1?`<button type="button" class="ibtn" data-act="rmHosp" data-i="${i}" title="Remover hospital" aria-label="Remover hospital ${i+1}">${ICL}</button>`:''})).join('')
+  + `<button class="btn pri" data-act="addHosp">+ Incluir hospital</button>`;
 };
 
 const validadeTxt = (enc=true) => { const m=state.meta; if(!m.liberadaEm) return 'Execução: aguardando liberação';
@@ -738,7 +743,8 @@ const validadeTxt = (enc=true) => { const m=state.meta; if(!m.liberadaEm) return
 /* Linha de situação no topo da aba Liberação (rascunho) */
 function topoLib(){
   const b=ED.P.filter(p=>p.b).length;
-  return `<div class="sitl"><span><b>${b?`${b} pendência${b>1?'s':''} impede${b>1?'m':''} a liberação`:'Pronta para liberar'}</b> · o botão Liberar PT fica no fim desta aba</span>
+  const pr=elabAssinou() && !aprPend().length;
+  return `<div class="sitl"><span><b>${pr?'Rascunho · pronto para liberar':b?`${b} pendência${b>1?'s':''} impede${b>1?'m':''} a liberação`:'Pronta para liberar'}</b>${pr&&b?` · ${b} pendência${b>1?'s':''} da liberação`:''} · o botão Liberar PT fica no fim desta aba</span>
     ${podeU('editar')?`<details class="cancel"><summary>Cancelar documento</summary><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><input type="text" id="motivoCancel" placeholder="Motivo do cancelamento" style="flex:1;min-width:200px"><button class="btn" data-act="cancelar">Cancelar documento</button></div></details>`:''}</div>`;
 }
 /* Barra com o botão Liberar PT, no fim da aba */
@@ -788,13 +794,22 @@ function preencherAuto(){
 }
 const btnMeus = b => podeBloco(b) ? `<button type="button" class="btn ghost btn-sm" data-act="meusDados" data-b="${b}">Usar meus dados</button>` : '';
 
+/* O liberador assina por último: depois das condições, das conferências e de todos os executantes */
+const libPodeAssinar = () => !(ED.P||[]).some(p=>p.b && ['l2','l3','l4'].includes(p.q));
+const LOCK_LIB = '🔒 A assinatura do liberador abre depois que as condições estiverem respondidas com “Sim”, as conferências marcadas e todos os executantes tiverem assinado.';
+function sigLiberador(){
+  if(state.lib.liberador.ass) return sigBlock('lib.liberador.ass','Assinatura do liberador');
+  const ok=libPodeAssinar();
+  return `<div class="fld"><span>Assinatura do liberador</span><div class="sig"><button type="button" class="btn" data-act="sign" data-k="lib.liberador.ass" data-label="Assinatura do liberador" data-lock ${ok?'':'disabled'}>✍ Assinar${ok?'':' (por último)'}</button></div></div>
+    <p class="hint lockn" data-lockn ${ok?'hidden':''}>${LOCK_LIB}</p>`;
+}
 T.lib = () => {
   const rq = requisitos(), ap = aprPend(), st = state.meta.status, rasc = st==='rascunho';
   const travaElab = rasc && !elabAberto(), travaLib = rasc && !libAberta();
   const avisoElab = !rasc ? '' : !podeElab()
       ? `<div class="banner"><span>O elaborador preenche e assina esta parte.</span></div>`
       : ap.length ? `<div class="banner warn"><span><b>Resolva ${ap.length} pendência(s) da APR (abas 01 a 06)</b> para preencher e assinar como elaborador.</span></div>`
-      : elabAssinou() ? `<div class="banner ok"><span>APR assinada. Qualquer alteração nas abas 01 a 06 remove esta assinatura.</span></div>` : '';
+      : '';
   const avisoLib = !rasc ? '' : !podeU('liberar')
       ? `<div class="banner"><span>A conferência e a liberação são feitas pelo liberador, no local.</span></div>`
       : !elabAssinou() || ap.length ? `<div class="banner warn"><span><b>Aguardando o elaborador concluir e assinar a APR.</b> A conferência e a liberação abrem depois da assinatura.</span></div>` : '';
@@ -803,7 +818,14 @@ T.lib = () => {
     return `<div class="impv ${v}"><div class="t">${c.titulo?`<span class="ctit">${esc(c.titulo)}</span>`:'<span class="ctit">Verificação geral</span>'}<b>${esc(c.perg)}</b>${c.orient?`<small>${esc(c.orient)}</small>`:''}${v==='presente'?`<small class="sn"><b>Se “Não”:</b> ${esc(c.seNao)}</small>`:''}</div><div class="seg" role="radiogroup" aria-label="${esc(c.perg)}">
       <label><input type="radio" name="${fid(k)}" id="${fid(k)}_a" data-k="${k}" value="ausente" ${v==='ausente'?'checked':''}><span>Sim</span></label>
       <label class="p"><input type="radio" name="${fid(k)}" id="${fid(k)}_p" data-k="${k}" value="presente" ${v==='presente'?'checked':''}><span>Não</span></label></div></div>`; };
-  return `${rasc?topoLib():''}
+  const pronto = rasc && elabAssinou() && !ap.length;
+  const bannerPronto = pronto ? `<div class="banner pronto"><span class="ic">✓</span><span style="flex:1;min-width:240px"><b class="t">Documento em rascunho · APR concluída e assinada pelo elaborador</b>O liberador já está apto a iniciar a liberação: responder às condições impeditivas, marcar as conferências, colher a assinatura dos executantes e assinar por último. Qualquer alteração nas abas 01 a 06 apaga todas as assinaturas e conferências.</span></div>` : '';
+  const exRow = (w,i) => { const nm=tx(w.nome)||`Executante ${i+1}`, lbl=esc(`Ciência da APR – ${nm}`);
+    return `<div class="exr"><div><b>${esc(nm)}</b><small>${esc(tx(w.funcao)||'Função não informada')}${tx(w.cpf)?` · CPF ${esc(w.cpf)}`:''}</small></div>
+      <div class="exs">${w.ass?`<img src="${w.ass}" data-sig="${w.ass}" alt="Assinatura de ${esc(nm)}"><span class="when">Assinado em<br>${fmtDH(w.em)}</span>${rasc?`<button type="button" class="btn ghost btn-sm" data-act="sign" data-k="equipe.${i}.ass" data-label="${lbl}">Refazer</button>`:''}`
+        :`<button type="button" class="btn pri" data-act="sign" data-k="equipe.${i}.ass" data-label="${lbl}">✍ Colher assinatura</button>`}</div>
+      <span class="qs ${w.ass?'ok':'pd'}">${w.ass?'✓ Assinado':'Falta assinar'}</span></div>`; };
+  return `${rasc?topoLib():''}${bannerPronto}
 ${quadro(1,'Elaborado por','l1',`${avisoElab}${fs(travaElab, `<div class="form-grid">${inp('lib.elaborador.nome','Nome',{req:1,cls:'c4'})}${inp('lib.elaborador.funcao','Função',{cls:'c4',ph:'Técnico ou Engenheiro de Segurança'})}
     ${inp('lib.elaborador.cpf','CPF',{cls:'c4',mask:'cpf',inputmode:'numeric',ph:'000.000.000-00'})}
     <label class="fld c4"><span>Registro <b class="rq">*</b></span><select id="f_lib_elaborador_regTipo" data-k="lib.elaborador.regTipo"><option value="MTE" ${state.lib.elaborador.regTipo==='MTE'?'selected':''}>MTE (técnico)</option><option value="CREA" ${state.lib.elaborador.regTipo==='CREA'?'selected':''}>CREA (engenheiro)</option></select></label>
@@ -815,9 +837,11 @@ ${fs(travaLib, quadro(2,'Condições impeditivas – verificação no local','l2
  + quadro(3,'Requisitos e conferências no local','l3',`<div class="cols" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px">
     <div><h3 class="sub">Requisitos das atividades</h3><div class="list">${rq.length?rq.map(r=>chk(`lib.req.${r.key}`,`<b>${r.a.n}</b> · ${r.txt}`)).join(''):'<div class="empty">Nenhuma atividade crítica marcada.</div>'}</div></div>
     <div><h3 class="sub">Conferências no local</h3><div class="list">${GERAIS.map(g=>chk(`lib.gerais.${g[0]}`,g[1])).join('')}</div></div></div>`)
- + quadro(4,'Validade da PT','',`<div class="valid">${state.meta.liberadaEm?`<b>${validadeTxt(false)}</b>`:'A validade começa no momento em que o liberador clicar em <b>Liberar PT</b> e vale por até <b>12 horas</b> (horário de Brasília). Pode terminar no dia seguinte.'}</div>`)
- + quadro(5,'Liberado por','l5',`<div class="form-grid">${inp('lib.liberador.nome','Nome',{req:1,cls:'c4'})}${inp('lib.liberador.funcao','Função',{cls:'c4',ph:'Responsável pela área'})}${inp('lib.liberador.cpf','CPF',{req:1,cls:'c4',mask:'cpf',inputmode:'numeric',ph:'000.000.000-00'})}</div>
-    <div style="margin-top:10px">${sigBlock('lib.liberador.ass','Assinatura do liberador')}</div>`,{acoes:btnMeus('liberador')}))}
+ + quadro(4,'Executantes','l4',`<p class="hint">Cada executante lê a APR com quem está liberando e assina a ciência. Os executantes são cadastrados na aba 05 Equipe pelo elaborador.</p>
+    ${state.equipe.length?`<div class="exl">${state.equipe.map(exRow).join('')}</div>`:'<div class="empty">Nenhum executante cadastrado na aba 05 Equipe.</div>'}`)
+ + quadro(5,'Validade da PT','',`<div class="valid">${state.meta.liberadaEm?`<b>${validadeTxt(false)}</b>`:'A validade começa no momento em que o liberador clicar em <b>Liberar PT</b> e vale por até <b>12 horas</b> (horário de Brasília). Pode terminar no dia seguinte.'}</div>`)
+ + quadro(6,'Liberado por','l6',`<div class="form-grid">${inp('lib.liberador.nome','Nome',{req:1,cls:'c4'})}${inp('lib.liberador.funcao','Função',{cls:'c4',ph:'Responsável pela área'})}${inp('lib.liberador.cpf','CPF',{req:1,cls:'c4',mask:'cpf',inputmode:'numeric',ph:'000.000.000-00'})}</div>
+    <div style="margin-top:10px">${sigLiberador()}</div>`,{acoes:btnMeus('liberador')}))}
 ${rasc?fimLib():''}`;
 };
 
@@ -964,6 +988,8 @@ function renderChrome(){
   /* e as barras de liberar / encerrar no fim da aba */
   const fim=document.querySelector('#panel .action.fim'), hf = !fim ? '' : cur==='lib' ? (rasc?fimLib():'') : cur==='enc' ? fimEnc() : '';
   if(fim && hf && fim.outerHTML!==hf){ const t=document.createElement('div'); t.innerHTML=hf; fim.replaceWith(t.firstChild); }
+  const bl2=document.querySelector('#panel [data-lock]');
+  if(bl2){ const ok=libPodeAssinar(); if(!bl2.closest('fieldset[disabled]')) bl2.disabled=!ok; bl2.textContent=`✍ Assinar${ok?'':' (por último)'}`; const n=document.querySelector('#panel [data-lockn]'); if(n) n.hidden=ok; }
   const sl=document.querySelector('#panel .sitl>span');
   if(sl && rasc){ const t=document.createElement('div'); t.innerHTML=topoLib(); sl.replaceWith(t.querySelector('.sitl>span')); }
   $('docno').textContent = state.meta.numero;
@@ -1056,7 +1082,7 @@ EDROOT.addEventListener('click', e=>{
   if(a==='rmHosp'){ state.emerg.hospitais.splice(+b.dataset.i,1); save(); return renderTab(); }
   if(a==='addTel'){ state.emerg.tel.push({s:'',t:''}); save(); return renderTab(); }
   if(a==='rmTel'){ state.emerg.tel.splice(+b.dataset.i,1); save(); return renderTab(); }
-  if(a==='sign') return openSig(b.dataset.k,b.dataset.label);
+  if(a==='sign'){ if(b.dataset.k==='lib.liberador.ass' && !state.lib.liberador.ass && !libPodeAssinar()) return API.toast(LOCK_LIB.replace('🔒 ',''),'bad'); return openSig(b.dataset.k,b.dataset.label); }
   if(a==='sigClear') return clearSig();
   if(a==='sigCancel') return closeSig();
   if(a==='sigSave') return saveSig();

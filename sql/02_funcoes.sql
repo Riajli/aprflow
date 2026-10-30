@@ -26,7 +26,7 @@ returns void language plpgsql as $$
 begin
   if not (case p_acao
     when 'editar'    then u.perfil in ('admin','gestor','tecnico')
-    when 'liberar'   then u.perfil in ('admin','gestor','liberador')
+    when 'liberar'   then u.perfil in ('admin','gestor','tecnico','liberador')
     when 'encerrar'  then u.perfil in ('admin','gestor','tecnico','liberador')
     when 'suspender' then u.perfil <> 'consulta'
     when 'usuarios'  then u.perfil in ('admin','gestor')
@@ -195,6 +195,15 @@ begin
   if coalesce(trim(dd#>>'{lib,liberador,nome}'),'')    = '' then e := array_append(e, 'Liberador sem nome'::text); end if;
   if coalesce(trim(dd#>>'{lib,liberador,cpf}'),'')     = '' then e := array_append(e, 'Liberador sem CPF'::text); end if;
   if coalesce(dd#>>'{lib,liberador,ass}','')           = '' then e := array_append(e, 'Liberador sem assinatura'::text); end if;
+  -- o liberador assina por último, depois de todos os executantes
+  begin
+    if coalesce(dd#>>'{lib,liberador,ass}','') <> '' and exists (
+         select 1 from jsonb_array_elements(case when jsonb_typeof(dd->'equipe') = 'array' then dd->'equipe' else '[]'::jsonb end) x
+          where coalesce(x->>'em','') <> '' and (x->>'em')::timestamptz > nullif(dd#>>'{lib,liberador,em}','')::timestamptz) then
+      e := array_append(e, 'O liberador deve assinar por último, depois de todos os executantes'::text);
+    end if;
+  exception when others then null;
+  end;
 
   -- A validade é definida pelo servidor no momento da liberação (até 12 h).
   -- Única regra de datas: a APR não pode ter data de elaboração no futuro.
@@ -356,28 +365,45 @@ returns jsonb language plpgsql security definer set search_path = public as $$
 declare u public.usuarios := public._sessao(p_token);
 begin
   return coalesce((select jsonb_agg(jsonb_build_object('id', c.id, 'nome', c.nome, 'cnpj', c.cnpj, 'ativo', c.ativo,
-            'endereco', c.endereco,
+            'endereco', c.endereco, 'telefones', c.telefones, 'codigo_form', c.codigo_form,
             'usuarios', (select count(*) from usuarios where cliente_id = c.id),
             'documentos', (select count(*) from documentos where cliente_id = c.id and excluido_em is null)) order by c.nome)
     from clientes c where u.perfil = 'admin' or c.id = u.cliente_id), '[]'::jsonb);
 end $$;
 
 drop function if exists public.salvar_cliente(text, uuid, text, text, boolean);
+drop function if exists public.salvar_cliente(text, uuid, text, text, boolean, jsonb);
+-- Administrador: cadastra e altera tudo. Gestor: altera só os telefones de emergência e o código do formulário da própria empresa.
 create or replace function public.salvar_cliente(p_token text, p_id uuid, p_nome text, p_cnpj text, p_ativo boolean,
-                                                p_endereco jsonb default '{}'::jsonb)
+                                                p_endereco jsonb default '{}'::jsonb, p_telefones jsonb default '[]'::jsonb,
+                                                p_codigo text default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare u public.usuarios := public._sessao(p_token); c public.clientes;
         e jsonb := case when jsonb_typeof(p_endereco) = 'object' then p_endereco else '{}'::jsonb end;
+        tel jsonb := coalesce((select jsonb_agg(jsonb_build_object('s', left(trim(coalesce(x->>'s','')),80), 't', left(trim(coalesce(x->>'t','')),30)))
+                                 from (select x from jsonb_array_elements(case when jsonb_typeof(p_telefones) = 'array' then p_telefones else '[]'::jsonb end) x limit 12) q
+                                where trim(coalesce(x->>'s','')) <> '' or trim(coalesce(x->>'t','')) <> ''), '[]'::jsonb);
+        cod text := nullif(left(trim(coalesce(p_codigo,'')),40),'');
 begin
+  if u.perfil = 'gestor' then
+    if p_id is distinct from u.cliente_id then
+      raise exception 'SEM_PERMISSAO' using hint = 'O gestor só altera os dados da própria empresa.';
+    end if;
+    update clientes set telefones = tel, codigo_form = cod where id = u.cliente_id returning * into c;
+    perform public._log(u, 'cliente_alterado', c.id, null, jsonb_build_object('nome', c.nome, 'campos', 'telefones e código do formulário'));
+    return jsonb_build_object('id', c.id);
+  end if;
   perform public._exigir(u, 'clientes');
   if coalesce(trim(p_nome),'') = '' then
     raise exception 'DADOS_INVALIDOS' using hint = 'Informe o nome do cliente.';
   end if;
   if p_id is null then
-    insert into clientes(nome, cnpj, ativo, endereco) values (trim(p_nome), nullif(trim(p_cnpj),''), coalesce(p_ativo,true), e) returning * into c;
+    insert into clientes(nome, cnpj, ativo, endereco, telefones, codigo_form)
+    values (trim(p_nome), nullif(trim(p_cnpj),''), coalesce(p_ativo,true), e, tel, cod) returning * into c;
     perform public._log(u, 'cliente_criado', c.id, null, jsonb_build_object('nome', c.nome));
   else
-    update clientes set nome = trim(p_nome), cnpj = nullif(trim(p_cnpj),''), ativo = coalesce(p_ativo,true), endereco = e
+    update clientes set nome = trim(p_nome), cnpj = nullif(trim(p_cnpj),''), ativo = coalesce(p_ativo,true), endereco = e,
+           telefones = tel, codigo_form = cod
      where id = p_id returning * into c;
     perform public._log(u, 'cliente_alterado', c.id, null, jsonb_build_object('nome', c.nome));
   end if;
@@ -476,7 +502,10 @@ begin
   returning ultimo into seq;
   insert into documentos(cliente_id, numero, ano, sequencia, dados, criado_por)
   values (c.id, format('APR-PT-%s-%s', a, lpad(seq::text, 4, '0')), a, seq,
-          jsonb_build_object('id', jsonb_build_object('empresa', c.nome, 'cnpj', coalesce(c.cnpj,''))), u.id)
+          jsonb_build_object('id', jsonb_build_object('empresa', c.nome, 'cnpj', coalesce(c.cnpj,'')),
+                             'meta', jsonb_build_object('rev', '00', 'codigo', coalesce(c.codigo_form,'')))
+          || case when jsonb_array_length(coalesce(c.telefones,'[]'::jsonb)) > 0
+                  then jsonb_build_object('emerg', jsonb_build_object('tel', c.telefones)) else '{}'::jsonb end, u.id)
   returning * into d;
   perform public._evento(d.id, format('Documento criado por %s', u.nome));
   perform public._log(u, 'documento_criado', c.id, d.id, jsonb_build_object('numero', d.numero));
@@ -528,41 +557,89 @@ begin
   return public._doc_json(d);
 end $$;
 
+-- Partes do documento usadas para saber o que mudou
+-- APR (abas 01 a 06): tudo menos liberação, encerramento e as assinaturas dos executantes
+create or replace function public._apr(dd jsonb)
+returns jsonb language sql immutable as $$
+  select (coalesce(dd,'{}'::jsonb) - 'lib' - 'enc') || jsonb_build_object('equipe',
+         coalesce((select jsonb_agg(x - 'ass' - 'em' order by o) from jsonb_array_elements(
+                     case when jsonb_typeof(dd->'equipe') = 'array' then dd->'equipe' else '[]'::jsonb end) with ordinality t(x, o)), '[]'::jsonb));
+$$;
+-- Conferências da liberação: respostas, requisitos, conferências, dados do liberador e assinaturas dos executantes
+create or replace function public._conf(dd jsonb)
+returns jsonb language sql immutable as $$
+  select jsonb_build_object('imped', dd#>'{lib,imped}', 'req', dd#>'{lib,req}', 'gerais', dd#>'{lib,gerais}',
+         'lib', coalesce(dd#>'{lib,liberador}','{}'::jsonb) - 'ass' - 'em',
+         'exec', coalesce((select jsonb_agg(x->'ass' order by o) from jsonb_array_elements(
+                     case when jsonb_typeof(dd->'equipe') = 'array' then dd->'equipe' else '[]'::jsonb end) with ordinality t(x, o)), '[]'::jsonb));
+$$;
+-- Apaga as confirmações da liberação: respostas, requisitos, conferências e as assinaturas dos executantes e do liberador
+create or replace function public._limpar_liberacao(dd jsonb)
+returns jsonb language plpgsql immutable as $$
+declare nd jsonb := dd; i int;
+begin
+  if jsonb_typeof(nd->'lib') <> 'object' then return nd; end if;
+  nd := jsonb_set(nd, '{lib,imped}',  '{}'::jsonb, true);
+  nd := jsonb_set(nd, '{lib,req}',    '{}'::jsonb, true);
+  nd := jsonb_set(nd, '{lib,gerais}', '{}'::jsonb, true);
+  if jsonb_typeof(nd#>'{lib,liberador}') = 'object' then
+    nd := jsonb_set(nd, '{lib,liberador,ass}', 'null'::jsonb, true);
+    nd := jsonb_set(nd, '{lib,liberador,em}',  'null'::jsonb, true);
+  end if;
+  if jsonb_typeof(nd->'equipe') = 'array' then
+    for i in 0 .. jsonb_array_length(nd->'equipe') - 1 loop
+      nd := jsonb_set(nd, array['equipe', i::text, 'ass'], 'null'::jsonb, true);
+      nd := jsonb_set(nd, array['equipe', i::text, 'em'],  'null'::jsonb, true);
+    end loop;
+  end if;
+  return nd;
+end $$;
+
 -- Rascunho:
---   técnico: grava a APR e o bloco "Elaborado por"; a conferência e a liberação ficam com o liberador
---   liberador: grava só a conferência, a validade e o "Liberado por", e só depois da assinatura do elaborador
---   gestor e administrador: gravam tudo
---   qualquer alteração na APR (ou nos dados do elaborador) depois da assinatura apaga a assinatura do elaborador
+--   técnico, gestor e administrador: gravam a APR, o "Elaborado por" e a liberação
+--   liberador: grava só a liberação e as assinaturas dos executantes; o "Elaborado por" e a APR nunca mudam
+--   APR (ou dados do elaborador) alterada depois da assinatura do elaborador: todas as assinaturas
+--   (elaborador, executantes e liberador) e as confirmações da liberação perdem o efeito
+--   sem a assinatura do elaborador não há liberação: confirmações e assinaturas da liberação ficam vazias
+--   liberador assinou e depois algo da liberação mudou: a assinatura dele perde o efeito
 -- Liberada ou suspensa: só encerramento e motivo de suspensão.
 create or replace function public.salvar_documento(p_token text, p_id uuid, p_dados jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare u public.usuarios := public._sessao(p_token); d public.documentos := public._doc(u, p_id); nd jsonb;
-        lib_old jsonb := coalesce(d.dados->'lib', '{}'::jsonb); el_old jsonb; el_new jsonb;
+        lib_old jsonb := coalesce(d.dados->'lib', '{}'::jsonb); el_old jsonb; el_new jsonb; i int;
 begin
-  if d.status = 'rascunho' and u.perfil = 'liberador' then
-    -- só a parte da liberação, e só com a APR assinada pelo elaborador; o "Elaborado por" nunca muda
-    if coalesce(lib_old#>>'{elaborador,ass}','') = '' then
-      nd := d.dados;
-    else
+  if d.status = 'rascunho' then
+    if u.perfil = 'liberador' then
       nd := jsonb_set(d.dados, '{lib}',
               jsonb_set(coalesce(p_dados->'lib', lib_old), '{elaborador}', coalesce(lib_old->'elaborador', '{}'::jsonb), true), true);
+      -- assinaturas dos executantes (a lista de executantes é do elaborador e não muda aqui)
+      if jsonb_typeof(d.dados->'equipe') = 'array' and jsonb_typeof(p_dados->'equipe') = 'array'
+         and jsonb_array_length(d.dados->'equipe') = jsonb_array_length(p_dados->'equipe') then
+        for i in 0 .. jsonb_array_length(d.dados->'equipe') - 1 loop
+          nd := jsonb_set(nd, array['equipe', i::text, 'ass'], coalesce(p_dados#>array['equipe', i::text, 'ass'], 'null'::jsonb), true);
+          nd := jsonb_set(nd, array['equipe', i::text, 'em'],  coalesce(p_dados#>array['equipe', i::text, 'em'],  'null'::jsonb), true);
+        end loop;
+      end if;
+    else
+      perform public._exigir(u, 'editar');
+      nd := p_dados;
+      el_old := coalesce(lib_old->'elaborador', '{}'::jsonb);
+      el_new := coalesce(nd#>'{lib,elaborador}', '{}'::jsonb);
+      if coalesce(el_old->>'ass','') <> ''
+         and (public._apr(nd) is distinct from public._apr(d.dados)
+              or (el_new - 'ass' - 'em') is distinct from (el_old - 'ass' - 'em')) then
+        nd := jsonb_set(nd, '{lib,elaborador,ass}', 'null'::jsonb, true);
+        nd := jsonb_set(nd, '{lib,elaborador,em}',  'null'::jsonb, true);
+        nd := public._limpar_liberacao(nd);
+      end if;
     end if;
-  elsif d.status = 'rascunho' then
-    perform public._exigir(u, 'editar');
-    nd := p_dados;
-    if u.perfil = 'tecnico' then
-      -- o técnico não preenche a conferência nem a liberação
-      nd := jsonb_set(nd, '{lib}', jsonb_set(lib_old, '{elaborador}', coalesce(p_dados#>'{lib,elaborador}', lib_old->'elaborador', '{}'::jsonb), true), true);
-    end if;
-    -- APR alterada depois da assinatura do elaborador: a assinatura deixa de valer
-    el_old := coalesce(lib_old->'elaborador', '{}'::jsonb);
-    el_new := coalesce(nd#>'{lib,elaborador}', '{}'::jsonb);
-    if coalesce(el_old->>'ass','') <> '' and coalesce(el_new->>'ass','') = coalesce(el_old->>'ass','')
-       and ((nd - 'lib' - 'enc' - 'meta') is distinct from (d.dados - 'lib' - 'enc' - 'meta')
-            or (nd->'meta') is distinct from (d.dados->'meta')
-            or (el_new - 'ass' - 'em') is distinct from (el_old - 'ass' - 'em')) then
-      nd := jsonb_set(nd, '{lib,elaborador,ass}', 'null'::jsonb, true);
-      nd := jsonb_set(nd, '{lib,elaborador,em}',  'null'::jsonb, true);
+    if coalesce(nd#>>'{lib,elaborador,ass}','') = '' then
+      nd := public._limpar_liberacao(nd);
+    elsif coalesce(lib_old#>>'{liberador,ass}','') <> ''
+          and coalesce(nd#>>'{lib,liberador,ass}','') = coalesce(lib_old#>>'{liberador,ass}','')
+          and public._conf(nd) is distinct from public._conf(d.dados) then
+      nd := jsonb_set(nd, '{lib,liberador,ass}', 'null'::jsonb, true);
+      nd := jsonb_set(nd, '{lib,liberador,em}',  'null'::jsonb, true);
     end if;
   elsif d.status in ('liberada','suspensa') then
     perform public._exigir(u, 'suspender');
@@ -620,10 +697,8 @@ create or replace function public.retomar_documento(p_token text, p_id uuid)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare u public.usuarios := public._sessao(p_token); d public.documentos := public._doc(u, p_id);
 begin
-  -- o liberador (ou gestor/administrador) retoma; o técnico só retoma a suspensão que ele mesmo fez
-  if not (u.perfil in ('admin','gestor','liberador') or (u.perfil = 'tecnico' and d.suspensa_por = u.id)) then
-    raise exception 'SEM_PERMISSAO' using hint = 'Só o liberador, ou quem suspendeu a PT, pode retomar o trabalho.';
-  end if;
+  -- quem pode liberar também pode retomar (técnico, liberador, gestor e administrador)
+  perform public._exigir(u, 'liberar');
   if d.status <> 'suspensa' then raise exception 'TRANSICAO_INVALIDA' using hint = 'Só uma PT suspensa pode ser retomada.'; end if;
   if d.validade_fim is not null and d.validade_fim < now() then
     raise exception 'PT_VENCIDA' using hint = 'A validade desta PT terminou. Encerre e emita um novo documento.';
@@ -825,7 +900,7 @@ grant execute on function public.logout(text)                             to ano
 grant execute on function public.eu(text)                                 to anon;
 grant execute on function public.alterar_minha_senha(text, text, text)    to anon;
 grant execute on function public.listar_clientes(text)                    to anon;
-grant execute on function public.salvar_cliente(text, uuid, text, text, boolean, jsonb) to anon;
+grant execute on function public.salvar_cliente(text, uuid, text, text, boolean, jsonb, jsonb, text) to anon;
 grant execute on function public.listar_usuarios(text)                    to anon;
 grant execute on function public.salvar_usuario(text, uuid, text, text, text, uuid, boolean, text, text, text, text, text) to anon;
 grant execute on function public.completar_cadastro(text, text, text, text, text) to anon;

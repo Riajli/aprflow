@@ -148,3 +148,16 @@ Regras:
 - Medidas, EPI e EPC: se os riscos sugerirem itens e nada estiver marcado na lista, aparece uma pendência. Marcar qualquer item resolve.
 - Encerramento com "Não concluído" exige o motivo nas observações.
 - Rascunho ainda sem a assinatura do elaborador pode ser apagado de vez, sem passar pela lixeira. Podem apagar o gestor, o administrador e quem criou o documento.
+
+## Versão 4.2 (assinaturas na liberação, telefones da empresa)
+
+1. **Supabase → SQL Editor:** rode `sql/01_estrutura.sql` e depois `sql/02_funcoes.sql`.
+2. **GitHub:** envie `app.html` e `admin.html` (raiz), `assets/css/app.css`, `assets/js/editor.js`, `app.js`, `admin.js` e `api.js`, os dois SQL e este README.
+
+Regras:
+- O técnico cadastra os executantes na aba 05. A ciência de cada executante é assinada na aba 07, no local, por quem libera.
+- Aba 07: 1 Elaborado por → 2 Condições impeditivas → 3 Requisitos e conferências → 4 Executantes → 5 Validade → 6 Liberado por. O liberador assina por último (o servidor confere).
+- O técnico também pode liberar a PT. O perfil Liberador continua só liberando, sem alterar a APR.
+- APR alterada depois da assinatura do elaborador: todas as assinaturas (elaborador, executantes e liberador) e as conferências da liberação perdem o efeito. Conferência alterada depois da assinatura do liberador: só a assinatura dele perde o efeito.
+- Cadastro da empresa: telefones de emergência e código do formulário entram automaticamente em cada APR nova. O gestor altera esses dois itens da própria empresa.
+- Rascunho assinado pelo elaborador e sem pendências mostra "Pronto para liberar" na lista e o aviso verde na aba 07.

@@ -119,7 +119,7 @@
   const PERFIS = { admin:'Administrador da plataforma', gestor:'Gestor', tecnico:'Técnico / Elaborador', liberador:'Liberador', consulta:'Consulta' };
   const PODE = {
     editar:    ['admin','gestor','tecnico'],
-    liberar:   ['admin','gestor','liberador'],
+    liberar:   ['admin','gestor','tecnico','liberador'],
     encerrar:  ['admin','gestor','tecnico','liberador'],
     suspender: ['admin','gestor','tecnico','liberador'],
     usuarios:  ['admin','gestor'],

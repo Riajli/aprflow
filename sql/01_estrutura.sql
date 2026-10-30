@@ -129,3 +129,7 @@ create unique index if not exists usuarios_cpf_empresa
 
 -- Versão 3.2: quem suspendeu a PT (o técnico que suspendeu pode retomar)
 alter table public.documentos add column if not exists suspensa_por uuid references public.usuarios(id);
+
+-- Versão 4.2: telefones de emergência e código do formulário no cadastro da empresa
+alter table public.clientes add column if not exists telefones   jsonb not null default '[]'::jsonb;
+alter table public.clientes add column if not exists codigo_form text;

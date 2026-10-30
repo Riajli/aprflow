@@ -80,7 +80,7 @@
           <td class="c-serv"><div class="clip">${esc(d.servico || 'Sem descrição')}</div></td>
           <td class="c-local muted">${esc(d.local || '')}</td>
           ${admin ? `<td class="c-cli muted">${esc(d.cliente_nome)}</td>` : ''}
-          <td><span class="st ${s}">${stLabel(s)}</span></td>
+          <td><span class="st ${s}">${stLabel(s)}</span>${s === 'rascunho' && d.elab_assinado && !lixeira ? '<br><span class="st-tag" title="APR concluída e assinada pelo elaborador">Pronto para liberar</span>' : ''}</td>
           <td class="c-dt muted">${lixeira ? `${fmtDH(d.excluido_em)}<br>Apagado de vez em ${diasRestantes(d)} dia(s)` : fmtDH(d.atualizado_em)}</td>
           <td class="c-acts">${lixeira
             ? (podeRestaurar(d) ? `<button class="ibtn" data-rest="${d.id}" title="Restaurar" aria-label="Restaurar ${esc(d.numero)}">${IC.volta}</button>` : '')
