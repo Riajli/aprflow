@@ -26,6 +26,7 @@ jobs:
         env:
           SENHA: ${{ secrets.BACKUP_SENHA }}
         run: |
+          if [ -z "$SENHA" ]; then echo "::error::O segredo BACKUP_SENHA não está cadastrado. Cadastre uma senha em Settings → Secrets and variables → Actions e rode de novo."; exit 1; fi
           gzip -9 aprflow.sql
           gpg --batch --yes --pinentry-mode loopback --passphrase "$SENHA" --symmetric --cipher-algo AES256 -o "aprflow-$(date +%Y-%m-%d).sql.gz.gpg" aprflow.sql.gz
           rm aprflow.sql.gz
