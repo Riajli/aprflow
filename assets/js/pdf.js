@@ -89,18 +89,27 @@
     doc.setTextColor(...COR.tinta); doc.setFont('helvetica','normal');
     y += HH + 3;
 
-    /* ---------- Identificação ---------- */
-    const rows = [
-      [th('Empresa executante'), td(s.id.empresa), th('CNPJ'), td(s.id.cnpj)],
-      ...(fmtEnd(s.id.endEmpresa) ? [[th('Endereço da empresa'), td(fmtEnd(s.id.endEmpresa), { colSpan:3 })]] : []),
-      ...(tx(s.id.cliRazao) || tx(s.id.cliCnpj) ? [[th('Dados da atividade'), td(s.id.cliRazao), th('CNPJ'), td(s.id.cliCnpj)]] : []),
-      ...(tx(s.id.local) ? [[th('Local do serviço'), td(s.id.local, { colSpan:3 })]] : []),
-      ...(fmtEnd(s.id.endLocal) ? [[th('Endereço do local'), td(fmtEnd(s.id.endLocal), { colSpan:3 })]] : []),
-      [th('Período'), td(periodoTxt(s), { colSpan:3 })],
-      ...(tx(s.id.os) ? [[th('Ordem de serviço'), td(s.id.os, { colSpan:3 })]] : []),
-      [th('Serviço a ser executado'), td(s.id.servico, { colSpan:3 })]
-    ];
-    tabela({ body: rows, columnStyles:{ 0:{cellWidth:34}, 1:{cellWidth:CW/2-34}, 2:{cellWidth:30}, 3:{cellWidth:CW/2-30} } });
+    /* ---------- Identificação: empresa executante, empresa da atividade e serviço ---------- */
+    const faixa = t => [{ content:T(t).toUpperCase(), colSpan:2, styles:{ fillColor:COR.marca, textColor:[255,255,255], fontStyle:'bold', halign:'center', fontSize:7.8 } }];
+    const exec = [[th('Razão social'), td(s.id.empresa)], [th('CNPJ'), td(s.id.cnpj)],
+      ...(fmtEnd(s.id.endEmpresa) ? [[th('Endereço'), td(fmtEnd(s.id.endEmpresa))]] : [])];
+    const cli = [...(tx(s.id.cliRazao) ? [[th('Razão social'), td(s.id.cliRazao)]] : []), ...(tx(s.id.cliCnpj) ? [[th('CNPJ'), td(s.id.cliCnpj)]] : []),
+      ...(tx(s.id.local) ? [[th('Local do serviço'), td(s.id.local)]] : []), ...(fmtEnd(s.id.endLocal) ? [[th('Endereço'), td(fmtEnd(s.id.endLocal))]] : [])];
+    const y0 = y, meio = CW/2;
+    if(cli.length){
+      tabela({ head:[faixa('Empresa executante')], body: exec, margin:{ left:MM.L, right:MM.R + meio + 1.5 }, columnStyles:{ 0:{cellWidth:24} } });
+      const y1 = y; y = y0;
+      tabela({ head:[faixa('Empresa da atividade (cliente)')], body: cli, margin:{ left:MM.L + meio + 1.5, right:MM.R }, columnStyles:{ 0:{cellWidth:27} } });
+      y = Math.max(y, y1);
+    } else {
+      tabela({ head:[faixa('Empresa executante')], body: exec, columnStyles:{ 0:{cellWidth:34} } });
+    }
+    y += 2.5;
+    tabela({ head:[faixa('Serviço')], body: [
+        [th('Serviço a ser executado'), td(s.id.servico)],
+        [th('Período'), td(periodoTxt(s))],
+        ...(tx(s.id.os) ? [[th('Ordem de serviço'), td(s.id.os)]] : [])
+      ], columnStyles:{ 0:{cellWidth:34} } });
 
     /* ---------- Riscos ---------- */
     const mz = s.usarMatriz;
@@ -232,6 +241,15 @@
       columnStyles:{ 0:{cellWidth:28}, 1:{cellWidth:CW/2-28}, 2:{cellWidth:28}, 3:{cellWidth:CW/2-28} },
       didParseCell: d => { if(d.cell.raw && d.cell.raw.sig !== undefined) d.cell.styles.minCellHeight = SIGH + 2; },
       didDrawCell: d => { if(d.section === 'body' && d.cell.raw && d.cell.raw.sig !== undefined) desenharAss(d, d.cell.raw.sig, d.cell.raw.em); } });
+
+    /* ---------- Suspensões e retomadas ---------- */
+    const SU = Array.isArray(s.suspensoes) ? s.suspensoes : [];
+    if(SU.length){ secao('Suspensões e retomadas');
+      const c = t => ({ content:T(t), styles:{ halign:'center' } });
+      tabela({ head:[[c('Suspensa em'), c('Por'), 'Motivo da suspensão', c('Retomada em'), c('Por'), 'Motivo da retomada']],
+        body: SU.map(x => x.ret_em ? [c(fmtDH(x.susp_em)), c(x.susp_por), T(x.susp_motivo), c(fmtDH(x.ret_em)), c(x.ret_por), T(x.ret_motivo)]
+          : [c(fmtDH(x.susp_em)), c(x.susp_por), T(x.susp_motivo), { content: s.meta.status === 'encerrada' ? 'Não retomada (encerrada suspensa)' : 'Aguardando retomada', colSpan:3, styles:{ halign:'center' } }]),
+        styles:{ fontSize:7.3, valign:'middle' }, columnStyles:{ 0:{cellWidth:24}, 1:{cellWidth:26}, 3:{cellWidth:24}, 4:{cellWidth:26} } }); }
 
     /* ---------- Encerramento ---------- */
     secao('Encerramento');

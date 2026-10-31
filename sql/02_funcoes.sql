@@ -685,17 +685,26 @@ declare u public.usuarios := public._sessao(p_token); d public.documentos := pub
 begin
   perform public._exigir(u, 'suspender');
   if d.status <> 'liberada' then raise exception 'TRANSICAO_INVALIDA' using hint = 'Só uma PT liberada pode ser suspensa.'; end if;
+  if coalesce(trim(p_motivo),'') = '' then
+    raise exception 'DADOS_INVALIDOS' using hint = 'Informe o motivo da suspensão.';
+  end if;
+  -- cada suspensão vira uma linha do quadro "Suspensões e retomadas" do documento
   update documentos set status = 'suspensa', atualizado_em = now(), suspensa_por = u.id,
-         dados = jsonb_set(dados, '{lib,motivo}', '""'::jsonb, true) where id = p_id;
-  perform public._evento(p_id, format('PT suspensa por %s: %s', u.nome, coalesce(nullif(trim(p_motivo),''), 'motivo não informado')));
+         dados = jsonb_set(jsonb_set(dados, '{lib,motivo}', '""'::jsonb, true), '{suspensoes}',
+                   (case when jsonb_typeof(dados->'suspensoes') = 'array' then dados->'suspensoes' else '[]'::jsonb end)
+                   || jsonb_build_array(jsonb_build_object('susp_em', now(), 'susp_por', u.nome, 'susp_motivo', left(trim(p_motivo), 500),
+                                                           'ret_em', null, 'ret_por', null, 'ret_motivo', null)), true)
+   where id = p_id;
+  perform public._evento(p_id, format('PT suspensa por %s: %s', u.nome, trim(p_motivo)));
   perform public._log(u, 'documento_suspenso', d.cliente_id, d.id, jsonb_build_object('motivo', p_motivo));
   select * into d from documentos where id = p_id;
   return public._doc_json(d);
 end $$;
 
-create or replace function public.retomar_documento(p_token text, p_id uuid)
+drop function if exists public.retomar_documento(text, uuid);
+create or replace function public.retomar_documento(p_token text, p_id uuid, p_motivo text default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
-declare u public.usuarios := public._sessao(p_token); d public.documentos := public._doc(u, p_id);
+declare u public.usuarios := public._sessao(p_token); d public.documentos := public._doc(u, p_id); n int;
 begin
   -- quem pode liberar também pode retomar (técnico, liberador, gestor e administrador)
   perform public._exigir(u, 'liberar');
@@ -703,9 +712,17 @@ begin
   if d.validade_fim is not null and d.validade_fim < now() then
     raise exception 'PT_VENCIDA' using hint = 'A validade desta PT terminou. Encerre e emita um novo documento.';
   end if;
-  update documentos set status = 'liberada', atualizado_em = now(), suspensa_por = null where id = p_id;
-  perform public._evento(p_id, format('Trabalho retomado por %s após conferência das condições', u.nome));
-  perform public._log(u, 'documento_retomado', d.cliente_id, d.id);
+  if coalesce(trim(p_motivo),'') = '' then
+    raise exception 'DADOS_INVALIDOS' using hint = 'Informe o motivo da retomada e as condições conferidas.';
+  end if;
+  n := case when jsonb_typeof(d.dados->'suspensoes') = 'array' then jsonb_array_length(d.dados->'suspensoes') else 0 end;
+  update documentos set status = 'liberada', atualizado_em = now(), suspensa_por = null,
+         dados = case when n > 0 then jsonb_set(dados, array['suspensoes', (n-1)::text],
+                   (dados#>array['suspensoes', (n-1)::text]) || jsonb_build_object('ret_em', now(), 'ret_por', u.nome, 'ret_motivo', left(trim(p_motivo), 500)))
+                 else dados end
+   where id = p_id;
+  perform public._evento(p_id, format('Trabalho retomado por %s: %s', u.nome, trim(p_motivo)));
+  perform public._log(u, 'documento_retomado', d.cliente_id, d.id, jsonb_build_object('motivo', p_motivo));
   select * into d from documentos where id = p_id;
   return public._doc_json(d);
 end $$;
@@ -763,7 +780,7 @@ declare u public.usuarios := public._sessao(p_token); o public.documentos := pub
         a int := extract(year from now() at time zone 'America/Sao_Paulo'); seq int; d public.documentos; nd jsonb; i int;
 begin
   perform public._exigir(u, 'editar');
-  nd := o.dados - 'enc' - 'lib';
+  nd := o.dados - 'enc' - 'lib' - 'suspensoes';
   if jsonb_typeof(nd->'equipe') = 'array' then
     for i in 0 .. jsonb_array_length(nd->'equipe') - 1 loop
       nd := jsonb_set(nd, array['equipe', i::text, 'ass'], 'null'::jsonb);
@@ -880,7 +897,12 @@ begin
     'encerramento', case when d.status = 'encerrada' then jsonb_build_object('nome', dd#>>'{enc,resp,nome}', 'funcao', dd#>>'{enc,resp,funcao}',
                       'situacao', dd#>>'{enc,situacao}') end,
     'suspensao', case when d.status = 'suspensa' then
-                   (select e from jsonb_array_elements(d.eventos) e where e->>'txt' like 'PT suspensa%' order by e->>'em' desc limit 1) end);
+                   (select e from jsonb_array_elements(d.eventos) e where e->>'txt' like 'PT suspensa%' order by e->>'em' desc limit 1) end,
+    -- última retomada, enquanto a PT está liberada de novo
+    'retomada', case when d.status = 'liberada' and jsonb_typeof(dd->'suspensoes') = 'array' and jsonb_array_length(dd->'suspensoes') > 0
+                      and coalesce(dd#>>array['suspensoes', (jsonb_array_length(dd->'suspensoes')-1)::text, 'ret_em'],'') <> ''
+                 then (select jsonb_build_object('em', x->'ret_em', 'por', x->>'ret_por', 'motivo', x->>'ret_motivo')
+                         from (select dd#>array['suspensoes', (jsonb_array_length(dd->'suspensoes')-1)::text] x) q) end);
 end $$;
 
 -- ---------- Permissões de execução ----------
@@ -912,7 +934,7 @@ grant execute on function public.obter_documento(text, uuid)              to ano
 grant execute on function public.salvar_documento(text, uuid, jsonb)      to anon;
 grant execute on function public.liberar_documento(text, uuid)            to anon;
 grant execute on function public.suspender_documento(text, uuid, text)    to anon;
-grant execute on function public.retomar_documento(text, uuid)            to anon;
+grant execute on function public.retomar_documento(text, uuid, text)      to anon;
 grant execute on function public.encerrar_documento(text, uuid)           to anon;
 grant execute on function public.cancelar_documento(text, uuid, text)     to anon;
 grant execute on function public.duplicar_documento(text, uuid)           to anon;

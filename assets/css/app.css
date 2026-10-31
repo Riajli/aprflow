@@ -603,3 +603,13 @@ ul.det li+li{margin-top:2px}
 .lockn{margin:10px 0 0;padding:8px 10px;border-radius:6px;background:var(--surface-2)}
 .st-tag{display:inline-block;margin-top:4px;padding:3px 7px;border-radius:99px;background:var(--ok-soft);color:var(--ok);font:600 11px/1.1 var(--f-display);letter-spacing:.04em;white-space:nowrap}
 @media (max-width:700px){ .exr{grid-template-columns:minmax(0,1fr)} .exr .qs{justify-self:start} }
+
+/* Versão 4.4: cabeçalho do documento com as empresas separadas */
+.sheet .emps{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;align-items:start}
+.sheet .emps.um{grid-template-columns:1fr}
+.sheet .emps table{margin:0}
+.sheet table.emp th.faixa{background:#0d5c53;color:#fff;text-align:center;letter-spacing:.06em;text-transform:uppercase}
+.sheet table.emp tr th:not(.faixa){width:28%}
+.sheet .emps.um table.emp tr th:not(.faixa),.sheet > table.emp tr th:not(.faixa){width:20%}
+@media (max-width:700px){ .sheet .emps{grid-template-columns:1fr} }
+@media print{ .sheet .emps{grid-template-columns:1fr 1fr} .sheet .emps.um{grid-template-columns:1fr} .sheet table.emp th.faixa{-webkit-print-color-adjust:exact;print-color-adjust:exact} }

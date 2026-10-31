@@ -161,3 +161,18 @@ Regras:
 - APR alterada depois da assinatura do elaborador: todas as assinaturas (elaborador, executantes e liberador) e as conferências da liberação perdem o efeito. Conferência alterada depois da assinatura do liberador: só a assinatura dele perde o efeito.
 - Cadastro da empresa: telefones de emergência e código do formulário entram automaticamente em cada APR nova. O gestor altera esses dois itens da própria empresa.
 - Rascunho assinado pelo elaborador e sem pendências mostra "Pronto para liberar" na lista e o aviso verde na aba 07.
+
+## Versão 4.3 (motivo da suspensão e da retomada)
+
+1. **Supabase → SQL Editor:** rode só `sql/02_funcoes.sql`.
+2. **GitHub:** envie `verificar.html` e este README (raiz), `assets/js/editor.js` e `pdf.js`, e `sql/02_funcoes.sql`.
+
+Regras:
+- Suspender e retomar exigem o motivo (conferido também no servidor).
+- Documento e PDF ganham o quadro "Suspensões e retomadas", entre a Liberação e o Encerramento, com uma linha por suspensão.
+- A página do QR code mostra o motivo da suspensão e, depois de retomada, a última retomada.
+
+## Versão 4.4 (cabeçalho com as empresas separadas)
+
+- Documento e PDF: blocos "Empresa executante", "Empresa da atividade (cliente)" e "Serviço". Sem dados do cliente, o bloco do cliente não aparece.
+- Página do QR code: razão social da empresa executante; razão social, CNPJ e localização da empresa da atividade.

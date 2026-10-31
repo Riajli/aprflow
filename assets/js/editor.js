@@ -223,6 +223,7 @@ function novo(){
     equipe:[],
     emerg:{planos:[...PLANOS],tel:[{s:'',t:''},{s:'',t:''},{s:'',t:''},{s:'',t:''}],hospitais:[{nome:'',addr:END0(),tel:'',km:'',min:''}]},
     lib:{imped:{},req:{},gerais:{},ini:'',fim:'',motivo:'',elaborador:{nome:'',funcao:'',cpf:'',regTipo:'MTE',regNum:'',ass:null,em:null},liberador:{nome:'',funcao:'',cpf:'',ass:null,em:null}},
+    suspensoes:[],
     enc:{chk:{},situacao:'concluido',obs:'',resp:{nome:'',funcao:'',cpf:'',ass:null,em:null}}
   };
 }
@@ -755,8 +756,9 @@ function fimLib(){
 /* Barra de ação depois da liberação (topo das abas Liberação e Encerramento) */
 function actionBar(){
   const st=statusVis();
-  if(st==='liberada'||st==='vencida') return `<div class="action"><div class="t"><b>${st==='vencida'?'PT vencida':'PT liberada'}</b><span>${validadeTxt()}. Qualquer integrante pode suspender o trabalho se as condições mudarem.</span></div>${podeU('suspender')?`${inp('lib.motivo','Motivo da suspensão',{cls:'',ph:'Ex.: início de chuva'})}<button class="btn warn" data-act="suspender">Suspender</button>`:''}</div>`;
-  if(st==='suspensa') return `<div class="action"><div class="t"><b>PT suspensa</b><span>${validadeTxt()}. Confira as condições no local antes de retomar.</span></div>${podeRetomar()?'<button class="btn pri" data-act="retomar">Retomar trabalho</button>':''}</div>`;
+  if(st==='liberada'||st==='vencida') return `<div class="action"><div class="t"><b>${st==='vencida'?'PT vencida':'PT liberada'}</b><span>${validadeTxt()}. Qualquer integrante pode suspender o trabalho se as condições mudarem.</span></div>${podeU('suspender')?`${inp('lib.motivo','Motivo da suspensão',{req:1,cls:'',ph:'Ex.: início de chuva forte'})}<button class="btn warn" data-act="suspender">Suspender</button>`:''}</div>`;
+  if(st==='suspensa'){ const u=(state.suspensoes||[]).slice(-1)[0];
+    return `<div class="action"><div class="t"><b>PT suspensa</b><span>${u?`Suspensa em ${fmtDH(u.susp_em)} por ${esc(u.susp_por)}: ${esc(u.susp_motivo)}. `:''}${validadeTxt()}. Confira as condições no local antes de retomar.</span></div>${podeRetomar()?`<label class="fld"><span>Motivo da retomada / condições conferidas <b class="rq">*</b></span><input type="text" id="motivoRet" maxlength="500" placeholder="Ex.: chuva cessou, área e equipamentos conferidos"></label><button class="btn pri" data-act="retomar">Retomar trabalho</button>`:''}</div>`; }
   if(st==='cancelada') return `<div class="action"><div class="t"><b>Documento cancelado</b><span>Consulte o motivo no histórico, na aba Documento.</span></div></div>`;
   if(st==='encerrada') return `<div class="action"><div class="t"><b>PT encerrada</b><span>${validadeTxt()}. Documento finalizado. Consulte a aba Documento.</span></div></div>`;
   return '';
@@ -900,15 +902,14 @@ T.doc = () => {
 <div class="docwrap"><article class="sheet" lang="pt-BR">
   <div class="tt"><div class="l">APRFlow</div><div><h1>ANÁLISE PRELIMINAR DE RISCOS / PERMISSÃO DE TRABALHO</h1></div>
     <div class="r"><div class="qr"><div id="qrbox"></div><div class="qri"><div>Nº ${esc(s.meta.numero)}</div>${tx(s.meta.codigo)?`<div class="${tx(s.meta.codigo).length>16?'qrs':''}">Cód. ${esc(s.meta.codigo)}</div>`:''}<div>Rev. ${esc(s.meta.rev)}</div><div>Situação: <b class="st-${statusVis()}">${statusVis().toUpperCase()}</b></div></div></div></div></div>
-  <table>
-    <tr><th style="width:18%">Empresa executante</th><td>${esc(s.id.empresa)}</td><th style="width:10%">CNPJ</th><td style="width:24%">${esc(s.id.cnpj)}</td></tr>
-    ${fmtEnd(s.id.endEmpresa)?`<tr><th>Endereço da empresa</th><td colspan="3">${esc(fmtEnd(s.id.endEmpresa))}</td></tr>`:''}
-    ${tx(s.id.cliRazao)||tx(s.id.cliCnpj)?`<tr><th>Dados da atividade</th><td>${esc(s.id.cliRazao)}</td><th>CNPJ</th><td>${esc(s.id.cliCnpj)}</td></tr>`:''}
-    ${tx(s.id.local)?`<tr><th>Local do serviço</th><td colspan="3">${esc(s.id.local)}</td></tr>`:''}
-    ${fmtEnd(s.id.endLocal)?`<tr><th>Endereço do local</th><td colspan="3">${esc(fmtEnd(s.id.endLocal))}</td></tr>`:''}
-    <tr><th>Período</th><td colspan="3">${periodoTxt()}</td></tr>
-    ${tx(s.id.os)?`<tr><th>Ordem de serviço</th><td colspan="3">${esc(s.id.os)}</td></tr>`:''}
-    <tr><th>Serviço a ser executado</th><td colspan="3">${esc(s.id.servico)}</td></tr>
+  ${(()=>{ const cli=[[ 'Razão social', s.id.cliRazao],['CNPJ', s.id.cliCnpj],['Local do serviço', s.id.local],['Endereço', fmtEnd(s.id.endLocal)]].filter(([,v])=>tx(v));
+    const bloco=(t,L)=>`<table class="emp"><tr><th colspan="2" class="faixa">${t}</th></tr>${L.map(([k,v])=>`<tr><th>${k}</th><td>${esc(v)}</td></tr>`).join('')}</table>`;
+    const ex=bloco('Empresa executante',[['Razão social',s.id.empresa],['CNPJ',s.id.cnpj],...(fmtEnd(s.id.endEmpresa)?[['Endereço',fmtEnd(s.id.endEmpresa)]]:[])]);
+    return `<div class="emps ${cli.length?'':'um'}">${ex}${cli.length?bloco('Empresa da atividade (cliente)',cli):''}</div>`; })()}
+  <table class="emp"><tr><th colspan="2" class="faixa">Serviço</th></tr>
+    <tr><th>Serviço a ser executado</th><td>${esc(s.id.servico)}</td></tr>
+    <tr><th>Período</th><td>${periodoTxt()}</td></tr>
+    ${tx(s.id.os)?`<tr><th>Ordem de serviço</th><td>${esc(s.id.os)}</td></tr>`:''}
   </table>
   ${s.modoEtapas?docEtapas():`<div class="sh">Riscos potenciais</div>
   <table><tr><th>Risco</th>${s.usarMatriz?'<th class="ctr" style="width:9%">P</th><th class="ctr" style="width:9%">S</th><th class="ctr" style="width:16%">Nível</th>':''}</tr>
@@ -947,6 +948,10 @@ T.doc = () => {
     <tr><th>Elaborado por</th><td>${esc(s.lib.elaborador.nome)}<div class="note">${esc(s.lib.elaborador.funcao)}</div>${tx(s.lib.elaborador.cpf)?`<div class="note">CPF ${esc(s.lib.elaborador.cpf)}</div>`:''}${tx(s.lib.elaborador.regNum)?`<div class="note">Registro ${esc(s.lib.elaborador.regTipo)} nº ${esc(s.lib.elaborador.regNum)}</div>`:''}</td><th style="width:16%">Liberado por</th><td>${esc(s.lib.liberador.nome)}<div class="note">${esc(s.lib.liberador.funcao)}</div>${tx(s.lib.liberador.cpf)?`<div class="note">CPF ${esc(s.lib.liberador.cpf)}</div>`:''}</td></tr>
     <tr><th>Assinatura</th><td class="sigtd">${sigImg(s.lib.elaborador.ass,s.lib.elaborador.em)}</td><th>Assinatura</th><td class="sigtd">${sigImg(s.lib.liberador.ass,s.lib.liberador.em)}</td></tr>
   </table>
+  ${s.suspensoes?.length?`<div class="sh">Suspensões e retomadas</div>
+  <table class="cen"><tr><th style="width:12%">Suspensa em</th><th style="width:14%">Por</th><th>Motivo da suspensão</th><th style="width:12%">Retomada em</th><th style="width:14%">Por</th><th>Motivo da retomada</th></tr>
+    ${s.suspensoes.map(x=>`<tr><td>${fmtDH(x.susp_em)}</td><td>${esc(x.susp_por)}</td><td style="text-align:left">${esc(x.susp_motivo)}</td>${x.ret_em?`<td>${fmtDH(x.ret_em)}</td><td>${esc(x.ret_por)}</td><td style="text-align:left">${esc(x.ret_motivo)}</td>`:`<td colspan="3">${s.meta.status==='encerrada'?'Não retomada (encerrada suspensa)':'Aguardando retomada'}</td>`}</tr>`).join('')}
+  </table>`:''}
   <div class="sh">Encerramento</div>
   <table>
     <tr><th style="width:22%">Conferências</th><td colspan="3">${ENC.map(e=>`<div>${s.enc.chk[e[0]]?'<span class="ok">✓</span>':'☐'} ${e[1]}</div>`).join('')}</td></tr>
@@ -1087,8 +1092,10 @@ EDROOT.addEventListener('click', e=>{
   if(a==='sigCancel') return closeSig();
   if(a==='sigSave') return saveSig();
   if(a==='liberar') return acaoServidor('liberar_documento', {}, 'PT liberada.');
-  if(a==='suspender') return acaoServidor('suspender_documento', {p_motivo: state.lib.motivo||''}, 'PT suspensa.');
-  if(a==='retomar') return acaoServidor('retomar_documento', {}, 'Trabalho retomado.');
+  if(a==='suspender'){ if(!tx(state.lib.motivo)){ API.toast('Informe o motivo da suspensão.','bad'); $(fid('lib.motivo'))?.focus(); return; }
+    return acaoServidor('suspender_documento', {p_motivo: tx(state.lib.motivo)}, 'PT suspensa.'); }
+  if(a==='retomar'){ const m=tx($('motivoRet')?.value); if(!m){ API.toast('Informe o motivo da retomada e as condições conferidas.','bad'); $('motivoRet')?.focus(); return; }
+    return acaoServidor('retomar_documento', {p_motivo: m}, 'Trabalho retomado.'); }
   if(a==='encerrar') return acaoServidor('encerrar_documento', {}, 'PT encerrada.', 'doc');
   if(a==='voltar') return voltar();
   if(a==='dlgFechar'){ $('dlg').hidden=true; return; }
