@@ -176,3 +176,9 @@ Regras:
 
 - Documento e PDF: blocos "Empresa executante", "Empresa da atividade (cliente)" e "Serviço". Sem dados do cliente, o bloco do cliente não aparece.
 - Página do QR code: razão social da empresa executante; razão social, CNPJ e localização da empresa da atividade.
+
+## Versão 4.5 (bibliotecas e fontes no próprio site)
+
+- As bibliotecas (PDF, tabelas do PDF, QR code, ZIP) ficam em `assets/libs` e as fontes em `assets/fonts`, nas mesmas versões de antes. O site não depende mais do cdnjs nem do Google Fonts.
+- Para funcionar, a rede do cliente precisa liberar só `aprflow.com.br` e o endereço do banco no Supabase. Busca de CEP (viacep.com.br, brasilapi.com.br) e mapa (Google Maps) são complementos: se forem bloqueados, o resto funciona.
+- Nada muda no Supabase.
