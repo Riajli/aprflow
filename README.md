@@ -182,3 +182,13 @@ Regras:
 - As bibliotecas (PDF, tabelas do PDF, QR code, ZIP) ficam em `assets/libs` e as fontes em `assets/fonts`, nas mesmas versões de antes. O site não depende mais do cdnjs nem do Google Fonts.
 - Para funcionar, a rede do cliente precisa liberar só `aprflow.com.br` e o endereço do banco no Supabase. Busca de CEP (viacep.com.br, brasilapi.com.br) e mapa (Google Maps) são complementos: se forem bloqueados, o resto funciona.
 - Nada muda no Supabase.
+
+## Versão 4.6 (catálogo revisado, aba 03 obrigatória, treinamento e ASO por NR)
+
+1. **Supabase → SQL Editor:** rode só `sql/02_funcoes.sql`.
+2. **GitHub:** envie `assets/js/editor.js`, `assets/js/pdf.js`, `assets/css/app.css`, `sql/02_funcoes.sql` e este README.
+
+Regras:
+- Catálogo de riscos revisado (50 riscos), ligações com as atividades críticas, treinamentos e EPI conforme a planilha de 31/10/2026. Riscos e EPI em ordem alfabética.
+- Aba 03: atividade sugerida pelos riscos e não marcada vira pendência; sai marcando a atividade ou clicando "Não se aplica" (registra quem e quando). O documento e o PDF mostram as atividades "Não se aplica". O servidor confere na liberação.
+- Aba 05: para cada treinamento exigido pelos riscos ou atividades (NR-35, NR-10, NR-33), cada executante precisa de "Treinamento válido" e "ASO válido e apto para a NR". O servidor confere na liberação.

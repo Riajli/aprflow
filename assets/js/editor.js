@@ -20,31 +20,31 @@ const svg = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 const ATIV = [
  {id:'a01',perg:'A Permissão de Içamento está emitida e aprovada?',orient:'Confira se a Permissão de Içamento (plano de içamento) foi preenchida, analisada e aprovada, se o operador é habilitado e se os acessórios de içamento foram inspecionados. Informe o número da permissão no campo da atividade 01.',seNao:'A atividade não pode ser iniciada.',reqDup:[0],cond:'Operações de içamento',n:'01',icon:'icamento',nome:'Movimentação de cargas com guinchos, guindastes ou plataformas',tipo:'permissao',doc:'Permissão de Içamento',
   regra:'Com carga suspensa, a atividade só pode começar após o preenchimento, análise e aprovação da Permissão de Içamento (plano de içamento). Sem ela, a atividade não pode ser executada.',
-  req:['Permissão de Içamento emitida e aprovada','Operador habilitado e acessórios de içamento inspecionados'],riscos:['r_obj','r_esmag','r_atrop']},
+  req:['Permissão de Içamento emitida e aprovada','Operador habilitado e acessórios de içamento inspecionados'],riscos:['r_obj', 'r_esmag', 'r_tombam', 'r_atrop']},
  {id:'a02',n:'02',icon:'obra',nome:'Construção civil',tipo:'controle',
   regra:'Seguir o PGR da obra e manter circulação e proteções coletivas da frente de trabalho conforme a NR-18.',
-  req:['Proteções coletivas da frente de trabalho instaladas'],riscos:['r_obj','r_mesmo','r_poeira','r_corte']},
+  req:['Proteções coletivas da frente de trabalho instaladas'],riscos:['r_altura', 'r_escada', 'r_telhado', 'r_mesmo', 'r_obj', 'r_choque', 'r_arco', 'r_corte', 'r_tombam']},
  {id:'a03',perg:'A medição de inflamáveis está dentro do limite definido pela empresa?',orient:'Meça a atmosfera no local imediatamente antes do início, com detector calibrado, e confirme que as fontes de ignição estão controladas.',seNao:'A atividade não pode ser iniciada. Ventile, elimine a fonte e repita a medição.',reqDup:[0],cond:'Atmosfera inflamável ou explosiva',n:'03',icon:'inflam',nome:'Gases, explosivos e/ou líquidos inflamáveis',tipo:'impeditiva',
   regra:'Medir a atmosfera antes do início. Com leitura de inflamáveis acima do limite definido pela empresa, a atividade é impeditiva e não pode ser iniciada.',
-  req:['Medição de inflamáveis realizada e dentro do limite','Fontes de ignição controladas'],riscos:['r_incendio','r_quimico']},
- {id:'a04',n:'04',icon:'altura',nome:'Trabalho em altura e/ou sobre telhado',tipo:'controle',trein:'nr35',
+  req:['Medição de inflamáveis realizada e dentro do limite','Fontes de ignição controladas'],riscos:['r_incendio', 'r_quimico']},
+ {id:'a04',n:'04',icon:'altura',nome:'Trabalho em altura',tipo:'controle',trein:'nr35',
   regra:'Trabalho acima de 2 m com risco de queda. Exige trabalhadores capacitados em NR-35, aptos no ASO, sistema de proteção contra quedas e plano de resgate.',
-  req:['Sistema de proteção contra quedas e ancoragem inspecionados','Plano de resgate definido e equipamento de resgate no local'],riscos:['r_altura','r_obj','r_escada','r_telhado']},
+  req:['Sistema de proteção contra quedas e ancoragem inspecionados','Plano de resgate definido e equipamento de resgate no local'],riscos:['r_altura', 'r_escada', 'r_telhado', 'r_obj', 'r_tombam', 'r_ilum']},
  {id:'a05',perg:'A desenergização ou a distância mínima de segurança está garantida?',orient:'Confirme se o circuito foi desenergizado, bloqueado, etiquetado e teve a ausência de tensão constatada com detector, ou se a distância mínima de segurança prevista nas normas pode ser mantida durante toda a atividade.',seNao:'A atividade não pode ser iniciada ou deve ser suspensa imediatamente.',reqDup:[0],rk:['r_choque','r_arco'],cond:'Circuitos ou superfícies energizadas',n:'05',icon:'energ',nome:'Constatação de circuito ou superfície energizada',tipo:'impeditiva',trein:'nr10',
   regra:'Manter o distanciamento mínimo de segurança previsto nas normas. Se não for possível garantir essa distância ou a desenergização, a atividade é impeditiva e deve ser suspensa imediatamente.',
-  req:['Circuito desenergizado, bloqueado e etiquetado, ou distância de segurança garantida','Ausência de tensão constatada com detector'],riscos:['r_choque','r_arco']},
+  req:['Circuito desenergizado, bloqueado e etiquetado, ou distância de segurança garantida','Ausência de tensão constatada com detector'],riscos:['r_choque', 'r_arco', 'r_redes', 'r_contcirc', 'r_ilum']},
  {id:'a06',n:'06',icon:'prox',nome:'Trabalho próximo a área energizada',tipo:'controle',trein:'nr10',
   regra:'Delimitar zona controlada e zona de risco. Só trabalhadores autorizados em NR-10 atuam na zona controlada.',
-  req:['Zona de risco delimitada e sinalizada'],riscos:['r_choque','r_arco']},
+  req:['Zona de risco delimitada e sinalizada'],riscos:['r_choque', 'r_arco', 'r_ilum']},
  {id:'a07',n:'07',icon:'quente',nome:'Trabalho a quente',tipo:'controle',
   regra:'Solda, corte ou esmerilhamento. Remover ou proteger combustíveis no entorno e manter extintor e observador de fogo durante e após o trabalho.',
-  req:['Combustíveis removidos ou protegidos no entorno','Extintor no local e observador de fogo designado'],riscos:['r_incendio','r_queim','r_fumos','r_particulas','r_radiacao']},
+  req:['Combustíveis removidos ou protegidos no entorno','Extintor no local e observador de fogo designado'],riscos:['r_incendio', 'r_queim', 'r_fumos', 'r_radiacao', 'r_particulas', 'r_vibmao']},
  {id:'a08',perg:'A Permissão de Entrada e Trabalho (PET) está emitida e liberada?',orient:'Confira se a PET (NR-33) foi preenchida, analisada e liberada pelo supervisor de entrada, com atmosfera avaliada e vigia designado. Informe o número da PET no campo da atividade 08.',seNao:'A entrada no espaço confinado e a atividade não podem ser realizadas.',reqDup:[0],rk:['r_atmosfera','r_confinado'],cond:'Trabalho em espaço confinado',n:'08',icon:'confinado',nome:'Espaço confinado',tipo:'permissao',doc:'Permissão de Entrada e Trabalho (PET)',trein:'nr33',
   regra:'É obrigatório preencher, analisar e liberar a Permissão de Entrada e Trabalho (PET – NR-33). Sem a emissão e autorização dessa permissão, a atividade não pode ser executada.',
-  req:['PET emitida e liberada pelo supervisor de entrada','Atmosfera avaliada e vigia designado'],riscos:['r_confinado','r_atmosfera','r_quimico']},
+  req:['PET emitida e liberada pelo supervisor de entrada','Atmosfera avaliada e vigia designado'],riscos:['r_confinado', 'r_atmosfera', 'r_ilum']},
  {id:'a09',n:'09',icon:'escav',nome:'Demolição e escavações',tipo:'controle',
   regra:'Verificar interferências subterrâneas antes de escavar. Escorar ou taludar conforme profundidade e tipo de solo, e isolar a borda da vala.',
-  req:['Interferências subterrâneas verificadas','Escoramento ou taludamento executado'],riscos:['r_soterr','r_obj','r_mesmo']},
+  req:['Interferências subterrâneas verificadas','Escoramento ou taludamento executado'],riscos:['r_mesmo', 'r_obj', 'r_soterr']},
  {id:'a10',perg:'As condições climáticas estão adequadas, sem chuva, ventos fortes ou formação de raios?',orient:'Verifique o tempo no local no momento da liberação e acompanhe durante o trabalho. Trabalho em altura a céu aberto, atividades próximas a rede energizada e içamento de cargas exigem condições adequadas.',seNao:'Essas atividades ficam proibidas e devem ser suspensas. Retome só após nova verificação.',reqDup:[0],rk:['r_clima'],cond:'Chuva, ventos fortes ou formação de raios',n:'10',icon:'clima',nome:'Intempéries climáticas',tipo:'impeditiva',
   regra:'Com chuva, ventos fortes ou formação de raios, ficam proibidos trabalho em altura a céu aberto, atividades próximas a rede energizada e içamento de cargas. Retomar só após nova verificação.',
   req:['Condições climáticas verificadas no momento da liberação'],riscos:['r_clima']}
@@ -53,23 +53,63 @@ const TIPO = {impeditiva:'Condição impeditiva',permissao:'Exige permissão com
 const TREIN = {nr35:'NR-35',nr10:'NR-10',nr33:'NR-33'};
 
 const RISCOS = [
- ['r_atrop', 'Atropelamento / tráfego de veículos'],['r_transito', 'Acidente de trânsito'],
- ['r_furto', 'Furtos e roubos (assalto)'],['r_altura', 'Queda de pessoa com diferença de nível'],
- ['r_mesmo', 'Queda de mesmo nível'],['r_escada', 'Queda de escada'],
- ['r_telhado', 'Trabalho sobre telhado ou forro frágil'],['r_obj', 'Queda de objetos ou materiais'],
- ['r_batida', 'Batida contra'],['r_choque', 'Choque elétrico'],
- ['r_arco', 'Arco elétrico'],['r_incendio', 'Incêndio ou explosão'],
- ['r_queim', 'Queimaduras'],['r_atmosfera', 'Atmosfera perigosa (falta de O₂, gases tóxicos)'],
- ['r_quimico', 'Exposição a produtos químicos'],['r_poeira', 'Exposição a poeiras'],
- ['r_fumos', 'Exposição a fumos metálicos'],['r_ruido', 'Ruído excessivo'],
- ['r_vibra', 'Vibração'],['r_radiacao', 'Radiação não ionizante (solda)'],
- ['r_calor', 'Exposição à radiação solar'],['r_peso', 'Levantamento e transporte manual de peso'],
- ['r_postura', 'Postura inadequada'],['r_corte', 'Cortes e perfurações'],
- ['r_esmag', 'Prensamento ou esmagamento'],['r_particulas', 'Projeção de partículas'],
- ['r_soterr', 'Soterramento ou desmoronamento'],['r_clima', 'Chuva, vento forte ou raios'],
- ['r_animais', 'Animais peçonhentos e insetos'],['r_agua', 'Exposição a água suja'],
- ['r_umid', 'Exposição a umidade'],['r_confinado', 'Trabalhos em espaços confinados']
+ ["r_altura", "Trabalho em altura", "Quedas e altura"],
+ ["r_escada", "Queda de escada", "Quedas e altura"],
+ ["r_telhado", "Trabalho sobre telhado ou forro frágil", "Quedas e altura"],
+ ["r_mesmo", "Queda de mesmo nível", "Quedas e altura"],
+ ["r_obj", "Queda de objetos ou materiais", "Quedas e altura"],
+ ["r_tropeco", "Tropeços e escorregões", "Quedas e altura"],
+ ["r_choque", "Choque elétrico", "Eletricidade"],
+ ["r_arco", "Arco elétrico", "Eletricidade"],
+ ["r_redes", "Trabalho próximo a redes elétricas energizadas", "Eletricidade"],
+ ["r_contcirc", "Contato acidental com circuitos energizados", "Eletricidade"],
+ ["r_incendio", "Incêndio ou explosão", "Fogo, calor e solda"],
+ ["r_queim", "Queimaduras", "Fogo, calor e solda"],
+ ["r_fumos", "Exposição a fumos metálicos", "Fogo, calor e solda"],
+ ["r_radiacao", "Radiação não ionizante", "Fogo, calor e solda"],
+ ["r_particulas", "Projeção de partículas", "Fogo, calor e solda"],
+ ["r_tempel", "Exposição a temperaturas elevadas", "Fogo, calor e solda"],
+ ["r_confinado", "Trabalhos em espaços confinados", "Atmosfera, químicos e espaço confinado"],
+ ["r_atmosfera", "Atmosfera perigosa (falta de O₂, gases tóxicos)", "Atmosfera, químicos e espaço confinado"],
+ ["r_quimico", "Exposição a produtos químicos", "Atmosfera, químicos e espaço confinado"],
+ ["r_poeira", "Inalação de poeiras", "Atmosfera, químicos e espaço confinado"],
+ ["r_cimento", "Contato com cimento e argamassa", "Atmosfera, químicos e espaço confinado"],
+ ["r_corrosivo", "Exposição a produtos corrosivos", "Atmosfera, químicos e espaço confinado"],
+ ["r_vapores", "Inalação de vapores químicos", "Atmosfera, químicos e espaço confinado"],
+ ["r_esmag", "Prensamento ou esmagamento", "Máquinas, cargas e escavação"],
+ ["r_corte", "Cortes e perfurações", "Máquinas, cargas e escavação"],
+ ["r_batida", "Impacto contra estruturas e objetos", "Máquinas, cargas e escavação"],
+ ["r_soterr", "Soterramento ou desmoronamento", "Máquinas, cargas e escavação"],
+ ["r_escoria", "Escoriações e abrasões", "Máquinas, cargas e escavação"],
+ ["r_contusao", "Contusões", "Máquinas, cargas e escavação"],
+ ["r_tombam", "Tombamento de equipamentos", "Máquinas, cargas e escavação"],
+ ["r_atrop", "Atropelamento", "Trânsito e segurança patrimonial"],
+ ["r_transito", "Acidente de trânsito", "Trânsito e segurança patrimonial"],
+ ["r_furto", "Furtos e roubos", "Trânsito e segurança patrimonial"],
+ ["r_acesso", "Acesso de pessoal não autorizado", "Trânsito e segurança patrimonial"],
+ ["r_trafego", "Proximidade de tráfego de veículos", "Trânsito e segurança patrimonial"],
+ ["r_viapub", "Trabalho em vias públicas", "Trânsito e segurança patrimonial"],
+ ["r_clima", "Chuva, vento forte ou raios", "Clima e ambiente"],
+ ["r_calor", "Exposição à radiação solar", "Clima e ambiente"],
+ ["r_umid", "Exposição a umidade", "Clima e ambiente"],
+ ["r_agua", "Contato com água contaminada", "Clima e ambiente"],
+ ["r_animais", "Picada por animais peçonhentos e insetos", "Clima e ambiente"],
+ ["r_animdom", "Ataque de animais domésticos", "Clima e ambiente"],
+ ["r_afogam", "Afogamento", "Clima e ambiente"],
+ ["r_ruido", "Ruído", "Físicos e ergonômicos"],
+ ["r_peso", "Transporte manual de materiais", "Físicos e ergonômicos"],
+ ["r_postura", "Postura inadequada", "Físicos e ergonômicos"],
+ ["r_ilum", "Iluminação inadequada", "Físicos e ergonômicos"],
+ ["r_esforco", "Esforço físico excessivo", "Físicos e ergonômicos"],
+ ["r_vibmao", "Vibração de mãos e braços", "Físicos e ergonômicos"],
+ ["r_vibcorpo", "Vibração de corpo inteiro", "Físicos e ergonômicos"]
 ];
+/* Riscos retirados do catálogo: só para mostrar o nome em documentos antigos */
+/* Lista em ordem alfabética para facilitar a escolha */
+RISCOS.sort((x,y)=>x[1].localeCompare(y[1],'pt-BR'));
+const RISCOS_ANTIGOS = [['r_vibra','Vibração']];
+/* Treinamentos exigidos por risco (planilha de revisão, 31/10/2026) */
+const RISCO_TREIN = {"r_altura": ["nr35"], "r_telhado": ["nr35"], "r_choque": ["nr10"], "r_arco": ["nr10"], "r_confinado": ["nr33"], "r_atmosfera": ["nr33"], "r_ilum": ["nr35"]};
 const MEDIDAS = [
  ['m_isolar', 'Sinalizar e isolar a área'],['m_inspfer', 'Inspecionar ferramentas e equipamentos antes do uso'],
  ['m_inspepi', 'Inspecionar cinto, talabarte e trava-queda'],['m_ancor', 'Instalar linha de vida ou ponto de ancoragem'],
@@ -115,45 +155,64 @@ const EPC = [
  ['c_resgate', 'Kit de resgate em altura']
 ];
 /* Itens retirados do catálogo: continuam nos documentos antigos que os usaram, mas não aparecem para novos */
+EPI.sort((x,y)=>x[1].localeCompare(y[1],'pt-BR'));   /* EPI em ordem alfabética */
 const OCULTOS = new Set(['c_resgate']);
 /* risco -> medidas (m), EPI (e) e EPC (c) sugeridos */
 const SUG = {
- r_atrop:{m:['m_transito', 'm_isolar'],e:['e_colete'],c:['c_cones']},
- r_transito:{m:['m_dirigir', 'm_cnh']},
- r_furto:{m:['m_valores', 'm_dupla'],c:['c_telcorp']},
- r_altura:{m:['m_inspepi', 'm_ancor', 'm_resgate', 'm_isolar'],e:['e_cinto', 'e_talY', 'e_talpos', 'e_trava', 'e_capacete', 'e_luvaseg', 'e_oculos', 'e_calcado'],c:['c_linha', 'c_tripe', 'c_pta', 'c_escada']},
- r_mesmo:{m:['m_limpeza'],e:['e_calcado']},
- r_escada:{m:['m_escada', 'm_segescada'],e:['e_cinto', 'e_talY', 'e_talpos', 'e_trava', 'e_capacete', 'e_luvaseg', 'e_oculos', 'e_calcado'],c:['c_linha', 'c_tripe', 'c_pta', 'c_escada']},
- r_telhado:{m:['m_ancor', 'm_inspepi'],e:['e_cinto', 'e_talY', 'e_talpos', 'e_trava', 'e_capacete', 'e_luvaseg', 'e_oculos', 'e_calcado'],c:['c_linha', 'c_tripe', 'c_pta', 'c_escada']},
- r_obj:{m:['m_isolar', 'm_amarrar'],e:['e_capacete', 'e_calcado'],c:['c_cones']},
- r_batida:{m:['m_circ', 'm_limpeza'],e:['e_capacete', 'e_calcado', 'e_luvaseg']},
- r_choque:{m:['m_loto', 'm_tensao', 'm_dist', 'm_isoladas'],e:['e_luvaiso', 'e_calcele', 'e_atpv'],c:['c_detector', 'c_bloqueio']},
- r_arco:{m:['m_loto', 'm_dist'],e:['e_atpv', 'e_facial'],c:['c_bloqueio']},
- r_incendio:{m:['m_combust', 'm_extintor', 'm_vigia', 'm_gas'],c:['c_extintor', 'c_manta', 'c_multigas']},
- r_queim:{m:['m_combust'],e:['e_raspa', 'e_avental'],c:['c_manta']},
- r_atmosfera:{m:['m_gas', 'm_ventilar', 'm_vigia', 'm_resgate'],e:['e_respquim', 'e_capacete', 'e_calcado', 'e_luvaseg'],c:['c_multigas', 'c_ventilador', 'c_tripe']},
- r_quimico:{m:['m_fispq', 'm_ventilar'],e:['e_luvanitr', 'e_respquim', 'e_oculos']},
- r_poeira:{m:['m_ventilar'],e:['e_pff2', 'e_oculos']},
- r_fumos:{m:['m_ventilar'],e:['e_pff2', 'e_mascsolda'],c:['c_biombo']},
- r_ruido:{m:['m_auric'],e:['e_plug', 'e_concha']},
- r_vibra:{m:['m_ergo'],e:['e_luvavib']},
- r_radiacao:{m:['m_isolinc'],e:['e_oculoesc', 'e_mascsolda'],c:['c_biombo', 'c_extintor']},
- r_calor:{m:['m_hidrat'],e:['e_solar', 'e_oculoesc']},
- r_peso:{m:['m_ergo']},
- r_postura:{m:['m_ergo']},
- r_corte:{m:['m_inspfer'],e:['e_luvamec', 'e_oculos']},
- r_esmag:{m:['m_protmaq', 'm_isolar'],e:['e_luvamec', 'e_calcado']},
- r_particulas:{m:['m_orient'],e:['e_oculos', 'e_facial'],c:['c_biombo']},
- r_soterr:{m:['m_escorar', 'm_interf', 'm_isolar'],e:['e_capacete', 'e_calcado', 'e_oculos'],c:['c_escoramento']},
- r_clima:{m:['m_clima'],e:['e_capa']},
- r_animais:{m:['m_animais'],e:['e_perneira', 'e_luvavaq']},
- r_agua:{m:['m_umid'],e:['e_luvanitr', 'e_botapvc', 'e_oculos']},
- r_umid:{m:['m_umid'],e:['e_luvanitr', 'e_botapvc', 'e_oculos']},
- r_confinado:{m:['m_pet'],e:['e_capacete', 'e_luvaseg', 'e_calcado', 'e_oculos'],c:['c_cones', 'c_placas', 'c_multigas', 'c_ventilador', 'c_escada', 'c_tripe', 'c_ilum', 'c_radio']}
+ r_altura:{m:["m_inspepi", "m_ancor", "m_resgate", "m_isolar"], e:["e_capacete", "e_oculos", "e_oculoesc", "e_luvavaq", "e_luvamec", "e_raspa", "e_calcado", "e_cinto", "e_talY", "e_talpos", "e_trava", "e_luvaseg"], c:["c_linha", "c_tripe", "c_pta", "c_escada"]},
+ r_escada:{m:["m_escada", "m_segescada"], e:["e_capacete", "e_oculos", "e_oculoesc", "e_luvavaq", "e_luvamec", "e_raspa", "e_calcado", "e_cinto", "e_talY", "e_talpos", "e_trava", "e_luvaseg"], c:["c_linha", "c_tripe", "c_pta", "c_escada"]},
+ r_telhado:{m:["m_ancor", "m_inspepi"], e:["e_capacete", "e_oculos", "e_oculoesc", "e_luvavaq", "e_luvamec", "e_raspa", "e_calcado", "e_cinto", "e_talY", "e_talpos", "e_trava", "e_luvaseg"], c:["c_linha", "c_tripe", "c_pta", "c_escada"]},
+ r_mesmo:{m:["m_limpeza"], e:["e_calcado"]},
+ r_obj:{m:["m_isolar", "m_amarrar"], e:["e_capacete", "e_calcado"], c:["c_cones"]},
+ r_tropeco:{e:["e_calcado"]},
+ r_choque:{m:["m_loto", "m_tensao", "m_dist", "m_isoladas"], e:["e_luvaiso", "e_calcele", "e_atpv"], c:["c_detector", "c_bloqueio"]},
+ r_arco:{m:["m_loto", "m_dist"], e:["e_facial", "e_calcele", "e_atpv"], c:["c_bloqueio"]},
+ r_redes:{e:["e_calcele", "e_atpv"]},
+ r_contcirc:{},
+ r_incendio:{m:["m_combust", "m_extintor", "m_vigia", "m_gas"], c:["c_extintor", "c_manta", "c_multigas"]},
+ r_queim:{m:["m_combust"], e:["e_raspa", "e_avental"], c:["c_manta"]},
+ r_fumos:{m:["m_ventilar"], e:["e_mascsolda", "e_pff2"], c:["c_biombo"]},
+ r_radiacao:{m:["m_isolinc"], e:["e_oculoesc", "e_mascsolda"], c:["c_biombo", "c_extintor"]},
+ r_particulas:{m:["m_orient"], e:["e_oculos", "e_facial"], c:["c_biombo"]},
+ r_tempel:{},
+ r_confinado:{m:["m_pet"], e:["e_capacete", "e_oculos", "e_calcado", "e_luvaseg"], c:["c_cones", "c_placas", "c_multigas", "c_ventilador", "c_escada", "c_tripe", "c_ilum", "c_radio"]},
+ r_atmosfera:{m:["m_gas", "m_ventilar", "m_vigia", "m_resgate"], e:["e_capacete", "e_oculos", "e_respquim", "e_calcado", "e_luvaseg"], c:["c_multigas", "c_ventilador", "c_tripe"]},
+ r_quimico:{m:["m_fispq", "m_ventilar"], e:["e_oculos", "e_respquim", "e_luvanitr"]},
+ r_poeira:{m:["m_ventilar"], e:["e_oculos", "e_pff2"]},
+ r_cimento:{e:["e_luvanitr"]},
+ r_corrosivo:{},
+ r_vapores:{},
+ r_esmag:{m:["m_protmaq", "m_isolar"], e:["e_luvamec", "e_calcado"]},
+ r_corte:{m:["m_inspfer"], e:["e_oculos", "e_luvavaq", "e_luvamec", "e_raspa"]},
+ r_batida:{m:["m_circ", "m_limpeza"], e:["e_capacete", "e_calcado", "e_luvaseg"]},
+ r_soterr:{m:["m_escorar", "m_interf", "m_isolar"], e:["e_capacete", "e_oculos", "e_calcado"], c:["c_escoramento"]},
+ r_escoria:{e:["e_luvamec", "e_raspa"]},
+ r_contusao:{},
+ r_tombam:{},
+ r_atrop:{m:["m_transito", "m_isolar"], e:["e_colete"], c:["c_cones"]},
+ r_transito:{m:["m_dirigir", "m_cnh"]},
+ r_furto:{m:["m_valores", "m_dupla"], c:["c_telcorp"]},
+ r_acesso:{},
+ r_trafego:{},
+ r_viapub:{},
+ r_clima:{m:["m_clima"], e:["e_capa"]},
+ r_calor:{m:["m_hidrat"], e:["e_oculoesc", "e_solar"]},
+ r_umid:{m:["m_umid"], e:["e_oculos", "e_luvanitr", "e_botapvc"]},
+ r_agua:{m:["m_umid"], e:["e_oculos", "e_luvanitr", "e_botapvc"]},
+ r_animais:{m:["m_animais"], e:["e_luvavaq", "e_perneira"]},
+ r_animdom:{},
+ r_afogam:{},
+ r_ruido:{m:["m_auric"], e:["e_plug", "e_concha"]},
+ r_peso:{m:["m_ergo"]},
+ r_postura:{m:["m_ergo"]},
+ r_ilum:{},
+ r_esforco:{},
+ r_vibmao:{e:["e_luvavib"]},
+ r_vibcorpo:{}
 };
 /* Verificações gerais de condição impeditiva: [chave, pergunta, orientação, se "Não"] */
 const IMP_GERAIS = [
- ['gi_trein','Todos os trabalhadores têm treinamento e ASO válidos para a atividade?','Confira se cada executante tem os treinamentos exigidos (NR-35, NR-10, NR-33, conforme as atividades marcadas) dentro da validade e ASO apto para a função.','O trabalhador sem treinamento ou ASO válido não pode executar a atividade.'],
+ ['gi_trein','Todos os trabalhadores têm treinamento e ASO válidos para a atividade?','Confira se cada executante tem os treinamentos exigidos (NR-35, NR-10, NR-33, conforme os riscos e as atividades da APR) dentro da validade e ASO apto para a função.','O trabalhador sem treinamento ou ASO válido não pode executar a atividade.'],
  ['gi_epi','EPI, EPC e ferramentas estão disponíveis e em bom estado?','Confira se todos os equipamentos previstos nesta APR estão no local, inspecionados, sem danos e em uso correto pela equipe.','A atividade não pode ser iniciada até a substituição ou correção.'],
  ['gi_mud','O local e a tarefa estão iguais ao previsto nesta APR?','Confirme se o local, o método de trabalho, a equipe e as condições do ambiente são os mesmos considerados na análise de riscos.','A APR perde o efeito. Interrompa e emita um novo documento.']
 ];
@@ -218,7 +277,7 @@ function novo(){
   return {
     meta:{numero:`APR-PT-${new Date().getFullYear()}-0001`,rev:'00',codigo:'',status:'rascunho',liberadaEm:null,encerradaEm:null,eventos:[],exemplo:false},
     id:{empresa:'',cnpj:'',endEmpresa:END0(),cliRazao:'',cliCnpj:'',local:'',endLocal:END0(),os:'',servico:'',previsao:'',elaboracao:hojeBR()},
-    ativ:{},outras:'',permNum:{},usarMatriz:true,modoEtapas:true,etapas:[],
+    ativ:{},ativNA:{},outras:'',permNum:{},usarMatriz:true,modoEtapas:true,etapas:[],
     riscos:{},riscosExtra:[],impExtra:[],medidas:{},medidaOutra:'',epi:{},epc:{},epiOutro:'',epcOutro:'',
     equipe:[],
     emerg:{planos:[...PLANOS],tel:[{s:'',t:''},{s:'',t:''},{s:'',t:''},{s:'',t:''}],hospitais:[{nome:'',addr:END0(),tel:'',km:'',min:''}]},
@@ -240,7 +299,8 @@ function normalizar(doc){
   if(!('modoEtapas' in d0)) s.modoEtapas = doc.status==='rascunho' && !Object.values(d0.riscos||{}).some(v=>v&&v.on) && !(d0.riscosExtra||[]).length;
   s.etapas.forEach(e=>{ e.ativ ??= ''; e.passo ??= ''; e.med ??= ''; e.riscos = Array.isArray(e.riscos) ? e.riscos : []; });
   syncEtapas(s);
-  s.equipe.forEach(w=>{ w.trein ??= {}; w.cpf ??= ''; w.mat ??= ''; });
+  s.equipe.forEach(w=>{ w.trein ??= {}; w.asoNr ??= {}; w.cpf ??= ''; w.mat ??= ''; });
+  s.ativNA ??= {};
   s.emerg.hospitais.forEach(h=>{ h.addr = mesclar(END0(), h.addr||{}); });
   if(!s.emerg.hospitais.length) s.emerg.hospitais=[{nome:'',addr:END0(),tel:'',km:'',min:''}];
   s.meta = { ...s.meta, numero:doc.numero, status:doc.status, liberadaEm:doc.liberada_em, encerradaEm:doc.encerrada_em, suspensaPor:doc.suspensa_por, validadeIni:doc.validade_ini, validadeFim:doc.validade_fim,
@@ -329,10 +389,13 @@ function impedimentos(){
   state.impExtra.forEach((x,i)=>{ if(tx(x.txt)) L.push({key:'ix_'+i,titulo:'',perg:tx(x.txt),orient:'',seNao:'A atividade não pode ser iniciada ou deve ser suspensa.'}); });
   return L;
 }
-function treinReq(){ return [...new Set(ativOn().map(a=>a.trein).filter(Boolean))]; }
+/* Treinamentos exigidos: pelos riscos marcados (RISCO_TREIN) e pelas atividades críticas marcadas */
+function treinReq(){ return Object.keys(TREIN).filter(t=>ativOn().some(a=>a.trein===t) || riscosOn().some(r=>(RISCO_TREIN[r[0]]||[]).includes(t))); }
+/* Motivo de cada treinamento exigido: nomes dos riscos e atividades que o exigem */
+function treinMotivo(t){ return [...riscosOn().filter(r=>(RISCO_TREIN[r[0]]||[]).includes(t)).map(r=>r[1]), ...ativOn().filter(a=>a.trein===t).map(a=>`atividade ${a.n} ${a.nome}`)]; }
 const riscosOn = () => RISCOS.filter(r=>state.riscos[r[0]]?.on);
 const MAX_ETAPAS = 15;
-const nomeRisco = r => r.id==='outro' ? (tx(r.nome)||'Outro risco') : (RISCOS.find(x=>x[0]===r.id)||[,''])[1];
+const nomeRisco = r => r.id==='outro' ? (tx(r.nome)||'Outro risco') : (RISCOS.find(x=>x[0]===r.id)||RISCOS_ANTIGOS.find(x=>x[0]===r.id)||[,''])[1];
 /* No modo etapas, a lista de riscos potenciais é montada a partir das etapas, com o maior nível de cada risco.
    Assim as sugestões de medidas, as condições impeditivas e a verificação do servidor continuam valendo. */
 function syncEtapas(s=state){
@@ -406,6 +469,8 @@ function pend(){
   }
   /* 03 Atividades críticas */
   ativOn().filter(a=>a.tipo==='permissao').forEach(a=>{ if(!(s.permNum[a.id]||'').trim()) add('ativ',`Atividade ${a.n}: informe o nº da ${a.doc}`,true,'a1'); });
+  /* 03: atividade sugerida pelos riscos e não marcada precisa de resposta: marcar ou "Não se aplica" */
+  ATIV.forEach(a=>{ if(!s.ativ[a.id] && !s.ativNA?.[a.id]){ const sg=riscosSugerem(a); if(sg.length) add('ativ',`${a.n} ${a.nome}: sugerida pelo risco ${sg.join('; ')}. Marque a atividade ou indique "Não se aplica"`,true,'a1'); } });
   if(s.ativ.a10 && (s.ativ.a01||s.ativ.a04||s.ativ.a05||s.ativ.a06)) add('ativ','Intempéries junto com altura, eletricidade ou içamento: interromper se houver chuva, vento ou raios',false,'a1');
   /* 04 Medidas e EPI: se os riscos sugerem itens, ao menos um item da lista deve ser marcado */
   const sg = sugeridos();
@@ -420,6 +485,7 @@ function pend(){
     if(!w.nome.trim()) add('equipe',`Trabalhador ${i+1}: informe o nome`);
     if(!tx(w.funcao)) add('equipe',`${nm}: informe a função`);
     tr.forEach(t=>{ if(!w.trein?.[t]) add('equipe',`${nm}: sem treinamento ${TREIN[t]} válido`); });
+    tr.forEach(t=>{ if(!w.asoNr?.[t]) add('equipe',`${nm}: ASO sem aptidão confirmada para ${TREIN[t]}`); });
     if(!w.aso) add('equipe',`${nm}: ASO apto não confirmado`); });
   /* 06 Emergência */
   if(!s.emerg.tel.some(t=>t.t.trim())) add('emerg','Informe ao menos um telefone de emergência do local',true,'g2');
@@ -530,8 +596,10 @@ T.ident = () =>
     <p class="hint" style="margin:10px 0 0">A rota até os hospitais parte deste endereço. Se ficar em branco, usa o endereço da empresa.</p>`);
 
 /* Riscos das etapas que sugerem cada atividade crítica */
+/* Atividades sugeridas pelos riscos e indicadas como "Não se aplica" (documento e PDF) */
+const naDoc = () => ATIV.filter(a=>!state.ativ[a.id] && state.ativNA?.[a.id]).map(a=>({a,sg:riscosSugerem(a)})).filter(x=>x.sg.length);
 function riscosSugerem(a){
-  const ids=new Set([...(a.riscos||[]),...(a.rk||[])]), out=[];
+  const ids=new Set(a.riscos||[]), out=[];
   state.etapas.forEach((e,i)=>e.riscos.forEach(r=>{ if(ids.has(r.id)) out.push(`${nomeRisco(r)} (etapa ${i+1})`); }));
   return [...new Set(out)];
 }
@@ -547,12 +615,13 @@ function cartaoImp(a,aviso){
     ${aviso?`<p class="ap">${aviso}</p>`:''}<p class="q">${a.perg}</p><p>${a.orient}</p><p><b>Se “Não”:</b> ${a.seNao}</p></div>`;
 }
 T.ativ = () =>
-  quadro(1,'Atividades críticas e condições especiais','a1',`<p class="hint">Toque nas atividades presentes no serviço. As destacadas foram sugeridas pelos riscos das etapas; confirme marcando ou deixe desmarcada se não se aplicar.</p>
-    <div class="arows">${ATIV.map(a=>{ const on=!!state.ativ[a.id], pr=impPorRisco(a), sg=on?[]:riscosSugerem(a);
+  quadro(1,'Atividades críticas e condições especiais','a1',`<p class="hint">Toque nas atividades presentes no serviço. As atividades sugeridas pelos riscos das etapas ficam pendentes até serem marcadas ou indicadas como “Não se aplica”.</p>
+    <div class="arows">${ATIV.map(a=>{ const on=!!state.ativ[a.id], pr=impPorRisco(a), sg=on?[]:riscosSugerem(a), na=!on&&sg.length&&state.ativNA?.[a.id];
       const dir = on ? cartaoRegra(a)+(a.tipo!=='controle'?cartaoImp(a,''):'')
-        : (sg.length?`<p class="sugr">Sugerida pelos riscos: ${esc(sg.join('; '))}</p>`:'')
+        : (na?`<div class="naok"><span><b>Não se aplica</b> · indicado por ${esc(na.por||'—')} em ${fmtDH(na.em)}. Sugerida pelo risco: ${esc(sg.join('; '))}</span><button type="button" class="btn btn-sm ghost" data-act="ativNAx" data-id="${a.id}">Desfazer</button></div>`
+          : sg.length?`<div class="napb"><b>Pendência · atividade sugerida pelos riscos</b><p>${esc(sg.join('; '))}</p><p class="hint" style="margin:0">Marque a atividade (as regras dela passam a valer) ou indique que não se aplica a este serviço.</p><div class="bt"><button type="button" class="btn pri btn-sm" data-act="ativ" data-id="${a.id}">✓ Marcar atividade ${a.n}</button><button type="button" class="btn btn-sm bad-t" data-act="ativNA" data-id="${a.id}">Não se aplica</button></div></div>`:'')
           +(a.tipo!=='controle'&&pr.length?cartaoImp(a,`Aplicável pelo risco marcado: <b>${esc(pr.join('; '))}</b>`):'');
-      return `<div class="arow"><button type="button" class="tile ${!on&&sg.length?'sug':''}" data-act="ativ" data-id="${a.id}" aria-pressed="${on}"><span class="no">${a.n}</span>${svg(a.icon)}<span class="nm">${a.nome}</span></button>
+      return `<div class="arow"><button type="button" class="tile ${na?'na':!on&&sg.length?'sug':''}" data-act="ativ" data-id="${a.id}" aria-pressed="${on}"><span class="no">${a.n}</span>${svg(a.icon)}<span class="nm">${a.nome}</span></button>
         <div class="adir">${dir||'<span class="off">Não marcada</span>'}</div></div>`; }).join('')}</div>`)
  +quadro(2,'Condições impeditivas adicionais','',`<p class="hint">Perguntas extras para este serviço, verificadas na liberação. Escreva de forma que “Sim” libere o trabalho.</p>
     <div class="stack">${state.impExtra.map((x,i)=>`<div class="imp">${inp(`impExtra.${i}.txt`,`Condição adicional ${i+1}`,{area:1,rows:2,ph:'Ex.: A área está isolada e sem circulação de pessoas?'})}<div><button class="btn ghost" data-act="rmImp" data-i="${i}">Remover</button></div></div>`).join('')}
@@ -685,15 +754,18 @@ T.medidas = () => {
 T.equipe = () => {
   const tr = treinReq();
   return `
-<div class="banner"><span>${tr.length?`<b>Treinamentos exigidos por esta APR:</b> ${tr.map(t=>TREIN[t]).join(', ')} para todos os executantes.`:'Nenhum treinamento específico exigido pelas atividades marcadas.'} Cada trabalhador assina a ciência da APR no próprio celular ou no aparelho do líder.</span></div>
+<div class="banner"><span>${tr.length?`<b>Treinamentos exigidos por esta APR:</b> ${tr.map(t=>TREIN[t]).join(', ')}, com aptidão no ASO, para todos os executantes.`:'Nenhum treinamento específico exigido pelos riscos e atividades marcados.'} A ciência de cada trabalhador é assinada na aba 07 Liberação da PT.</span></div>
 <div class="wgrid">
   ${state.equipe.map((w,i)=>`<section class="box wk">
     <div style="display:flex;align-items:center;gap:8px"><h3 class="qt" style="flex:1">Executante ${i+1}</h3><button class="btn ghost" data-act="rmWorker" data-i="${i}" aria-label="Remover executante ${i+1}">Remover</button></div>
     ${inp(`equipe.${i}.nome`,'Nome',{req:1})}
     <div class="row">${inp(`equipe.${i}.cpf`,'CPF',{req:1,mask:'cpf',inputmode:'numeric',ph:'000.000.000-00'})}${inp(`equipe.${i}.mat`,'Matrícula')}</div>
     ${inp(`equipe.${i}.funcao`,'Função',{req:1})}
-    <div class="fld"><span>Treinamentos válidos</span><div class="trs">${Object.keys(TREIN).map(t=>{ const has=w.trein?.[t], need=tr.includes(t);
-      return `<label class="tr ${has?'has':need?'need':''}"><input type="checkbox" id="${fid(`equipe.${i}.trein.${t}`)}" data-k="equipe.${i}.trein.${t}" ${has?'checked':''}>${TREIN[t]}${need&&!has?' · exigido':''}</label>`; }).join('')}</div></div>
+    ${tr.map(t=>{ const ok=w.trein?.[t]&&w.asoNr?.[t];
+      return `<div class="nrq ${ok?'ok':''}"><div class="nrh"><b>${TREIN[t]}</b><span>Exigido por: ${esc(treinMotivo(t).join("; "))}</span></div>
+        ${chk(`equipe.${i}.trein.${t}`,`Treinamento ${TREIN[t]} válido`)}${chk(`equipe.${i}.asoNr.${t}`,`ASO válido e apto para ${TREIN[t]}`)}</div>`; }).join('')}
+    ${Object.keys(TREIN).some(t=>!tr.includes(t))?`<div class="fld"><span>Outros treinamentos válidos (opcional)</span><div class="trs">${Object.keys(TREIN).filter(t=>!tr.includes(t)).map(t=>{ const has=w.trein?.[t];
+      return `<label class="tr ${has?'has':''}"><input type="checkbox" id="${fid(`equipe.${i}.trein.${t}`)}" data-k="equipe.${i}.trein.${t}" ${has?'checked':''}>${TREIN[t]}</label>`; }).join('')}</div></div>`:''}
     ${chk(`equipe.${i}.aso`,'ASO válido e apto para a função')}
     <p class="hint" style="margin:0">${w.ass?`✓ Ciência assinada em ${fmtDH(w.em)}, na aba 07 Liberação da PT.`:'A assinatura de ciência é colhida na aba 07 Liberação da PT, no local, por quem libera.'}</p>
   </section>`).join('')}
@@ -918,6 +990,7 @@ T.doc = () => {
   </table>`}
   <div class="sh">Identificação de atividades críticas e condições especiais</div>
   <div class="ag">${ATIV.map(a=>`<div>${x(s.ativ[a.id])}<span><b>${a.n}</b> ${a.nome}</span></div>`).join('')}</div>
+  ${naDoc().length?`<div class="pr"><b>Não se aplica:</b> ${naDoc().map(x=>`${x.a.n} ${esc(x.a.nome)} (sugerida pelo risco ${esc(x.sg.join('; '))})`).join(' · ')}</div>`:''}
   ${s.outras.trim()?`<div class="pr"><b>Outras situações:</b> ${esc(s.outras)}</div>`:''}
   <div class="sh">Condições impeditivas</div>
   <table><tr><th>Verificação no local</th><th class="ctr" style="width:14%">Resposta</th></tr>
@@ -939,7 +1012,7 @@ T.doc = () => {
   ${origemRota()?`<div class="note" style="margin:-6px 0 10px">Rota a partir de: ${esc(origemRota())}</div>`:''}
   <div class="sh">Trabalhadores executantes</div>
   <table class="cen"><tr><th>Nome</th><th>Função</th><th>CPF</th><th>Matrícula</th><th>Treinamentos</th><th>ASO</th><th style="width:20%">Ciência</th></tr>
-    ${s.equipe.map(w=>`<tr><td>${esc(w.nome)}</td><td>${esc(w.funcao)}</td><td>${esc(w.cpf)}</td><td>${esc(w.mat)}</td><td>${Object.keys(TREIN).filter(t=>w.trein?.[t]).map(t=>TREIN[t]).join(', ')||'—'}</td><td>${w.aso?'Apto':'—'}</td><td class="sigtd">${sigImg(w.ass,w.em)}</td></tr>`).join('')}
+    ${s.equipe.map(w=>`<tr><td>${esc(w.nome)}</td><td>${esc(w.funcao)}</td><td>${esc(w.cpf)}</td><td>${esc(w.mat)}</td><td>${Object.keys(TREIN).filter(t=>w.trein?.[t]).map(t=>TREIN[t]).join(', ')||'—'}</td><td>${w.aso?'Apto':'—'}${Object.keys(TREIN).filter(t=>w.asoNr?.[t]).map(t=>`<div class="note">Apto ${TREIN[t]}</div>`).join('')}</td><td class="sigtd">${sigImg(w.ass,w.em)}</td></tr>`).join('')}
   </table>
   <div class="sh">Permissão de trabalho – liberação</div>
   <table>
@@ -1053,9 +1126,11 @@ EDROOT.addEventListener('click', e=>{
   if(a==='prev'||a==='next'){ const i=TABS.findIndex(t=>t[0]===cur)+(a==='next'?1:-1); if(TABS[i]) go(TABS[i][0]); return; }
   if(a==='pend') return $('side').classList.toggle('open');
   if(['sugestoes','addWorker','rmWorker','addImp','rmImp','addRisco','rmRisco','addHosp','rmHosp','addTel','rmTel','addEtapa','upEtapa','addRiscoEt','rmRiscoEt','sugMed'].includes(a) && podeElab()) invalidarAssElab();
-  if(a==='ativ'){ if(somenteLeitura()||soLiberacao()||state.meta.status!=='rascunho') return; state.ativ[b.dataset.id]=!state.ativ[b.dataset.id]; invalidarAssElab(); save(); return renderTab(); }
+  if(a==='ativ'){ if(somenteLeitura()||soLiberacao()||state.meta.status!=='rascunho') return; state.ativ[b.dataset.id]=!state.ativ[b.dataset.id]; if(state.ativ[b.dataset.id]) delete state.ativNA[b.dataset.id]; invalidarAssElab(); save(); return renderTab(); }
+  if(a==='ativNA'){ if(somenteLeitura()||soLiberacao()||state.meta.status!=='rascunho') return; state.ativNA[b.dataset.id]={em:new Date().toISOString(),por:ED.usuario?.nome||''}; invalidarAssElab(); save(); return renderTab(); }
+  if(a==='ativNAx'){ if(somenteLeitura()||soLiberacao()||state.meta.status!=='rascunho') return; delete state.ativNA[b.dataset.id]; invalidarAssElab(); save(); return renderTab(); }
   if(a==='sugestoes'){ const sg=sugeridos(); sg.m.forEach(x=>state.medidas[x]=true); sg.e.forEach(x=>state.epi[x]=true); sg.c.forEach(x=>state.epc[x]=true); save(); return renderTab(); }
-  if(a==='addWorker'){ state.equipe.push({nome:'',funcao:'',cpf:'',mat:'',trein:{},aso:false,ass:null,em:null}); save(); renderTab(); const p=$('panel'); p.scrollTop=p.scrollHeight; return; }
+  if(a==='addWorker'){ state.equipe.push({nome:'',funcao:'',cpf:'',mat:'',trein:{},asoNr:{},aso:false,ass:null,em:null}); save(); renderTab(); const p=$('panel'); p.scrollTop=p.scrollHeight; return; }
   if(a==='rmWorker'){ state.equipe.splice(+b.dataset.i,1); save(); return renderTab(); }
   if(a==='addImp'){ state.impExtra.push({txt:''}); save(); renderTab(); const f=document.getElementById(fid(`impExtra.${state.impExtra.length-1}.txt`)); f&&f.focus(); return; }
   if(a==='rmImp'){ const i=+b.dataset.i, n=state.impExtra.length, im=state.lib.imped; state.impExtra.splice(i,1); for(let j=i;j<n;j++){ if(j+1<n && im['ix_'+(j+1)]) im['ix_'+j]=im['ix_'+(j+1)]; else delete im['ix_'+j]; } save(); return renderTab(); }

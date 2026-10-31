@@ -167,6 +167,13 @@ returns text language sql immutable as $$
     else format('%s por %s (registrado no sistema por %s)', p_acao, trim(p_informado), p_logado) end;
 $$;
 
+-- Catálogo usado pelo servidor (gerado a partir da planilha de revisão de 31/10/2026)
+-- atividade crítica -> riscos que a sugerem
+create or replace function public._sugere_ativ() returns jsonb language sql immutable as $$ select '{"a01": ["r_obj", "r_esmag", "r_tombam", "r_atrop"], "a02": ["r_altura", "r_escada", "r_telhado", "r_mesmo", "r_obj", "r_choque", "r_arco", "r_corte", "r_tombam"], "a03": ["r_incendio", "r_quimico"], "a04": ["r_altura", "r_escada", "r_telhado", "r_obj", "r_tombam", "r_ilum"], "a05": ["r_choque", "r_arco", "r_redes", "r_contcirc", "r_ilum"], "a06": ["r_choque", "r_arco", "r_ilum"], "a07": ["r_incendio", "r_queim", "r_fumos", "r_radiacao", "r_particulas", "r_vibmao"], "a08": ["r_confinado", "r_atmosfera", "r_ilum"], "a09": ["r_mesmo", "r_obj", "r_soterr"], "a10": ["r_clima"]}'::jsonb $$;
+-- treinamento -> riscos que o exigem; atividades que também o exigem
+create or replace function public._trein_riscos() returns jsonb language sql immutable as $$ select '{"nr35": ["r_altura", "r_telhado", "r_ilum"], "nr10": ["r_choque", "r_arco"], "nr33": ["r_confinado", "r_atmosfera"]}'::jsonb $$;
+create or replace function public._trein_ativ() returns jsonb language sql immutable as $$ select '{"nr35": ["a04"], "nr10": ["a05", "a06"], "nr33": ["a08"]}'::jsonb $$;
+
 -- Regras conferidas no servidor antes de liberar a PT
 create or replace function public._validar_liberacao(dd jsonb)
 returns text[] language plpgsql stable as $$
@@ -203,6 +210,33 @@ begin
       e := array_append(e, 'O liberador deve assinar por último, depois de todos os executantes'::text);
     end if;
   exception when others then null;
+  end;
+
+  -- Atividade crítica sugerida pelos riscos: precisa estar marcada ou indicada como "Não se aplica"
+  declare rk text[]; k text; v jsonb; t text; w2 jsonb; m int;
+  begin
+    rk := coalesce((select array_agg(key) from jsonb_each(case when jsonb_typeof(dd->'riscos') = 'object' then dd->'riscos' else '{}'::jsonb end)
+                     where coalesce((value->>'on')::boolean,false)), '{}');
+    for k, v in select * from jsonb_each(public._sugere_ativ()) loop
+      if coalesce((dd#>>array['ativ',k])::boolean,false) is false and not (coalesce(dd->'ativNA','{}'::jsonb) ? k)
+         and exists (select 1 from jsonb_array_elements_text(v) x where x = any(rk)) then
+        e := array_append(e, format('Atividade crítica %s sugerida pelos riscos sem resposta (marque a atividade ou indique "Não se aplica")', substr(k,2))::text);
+      end if;
+    end loop;
+    -- Treinamento e aptidão no ASO exigidos pelos riscos ou pelas atividades marcadas
+    for t, v in select * from jsonb_each(public._trein_riscos()) loop
+      if exists (select 1 from jsonb_array_elements_text(v) x where x = any(rk))
+         or exists (select 1 from jsonb_array_elements_text(public._trein_ativ()->t) a where coalesce((dd#>>array['ativ',a])::boolean,false)) then
+        m := 0;
+        for w2 in select * from jsonb_array_elements(case when jsonb_typeof(dd->'equipe') = 'array' then dd->'equipe' else '[]'::jsonb end) loop
+          m := m + 1;
+          if coalesce((w2#>>array['trein',t])::boolean,false) is false then
+            e := array_append(e, format('Executante %s sem treinamento %s válido', m, upper(replace(t,'nr','NR-')))::text); end if;
+          if coalesce((w2#>>array['asoNr',t])::boolean,false) is false then
+            e := array_append(e, format('Executante %s sem aptidão no ASO para %s', m, upper(replace(t,'nr','NR-')))::text); end if;
+        end loop;
+      end if;
+    end loop;
   end;
 
   -- A validade é definida pelo servidor no momento da liberação (até 12 h).

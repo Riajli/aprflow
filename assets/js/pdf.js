@@ -165,6 +165,8 @@
         doc.setDrawColor(...COR.tinta); doc.setLineWidth(0.3); doc.rect(bx, by, 3, 3);
         if(raw.marcado){ doc.setLineWidth(0.5); doc.line(bx+0.5, by+0.5, bx+2.5, by+2.5); doc.line(bx+2.5, by+0.5, bx+0.5, by+2.5); }
         doc.setDrawColor(...COR.borda); doc.setLineWidth(0.25); } });
+    const na = naDoc();
+    if(na.length) tabela({ body:[[th('Não se aplica'), td(na.map(x => `${x.a.n} ${T(x.a.nome)} (sugerida pelo risco ${T(x.sg.join('; '))})`).join('\n'))]], columnStyles:{ 0:{cellWidth:34} } });
     if(tx(s.outras)) tabela({ body:[[th('Outras situações'), td(s.outras)]], columnStyles:{ 0:{cellWidth:34} } });
 
     /* ---------- Condições impeditivas ---------- */
@@ -220,9 +222,9 @@
     secao('Trabalhadores executantes');
     tabela({ head:[['Nome','Função','CPF','Matrícula','Treinamentos','ASO','Ciência']], styles:{ halign:'center' }, headStyles:{ halign:'center' },
       body: s.equipe.length ? s.equipe.map(w => [T(w.nome), T(w.funcao), T(w.cpf), T(w.mat),
-        Object.keys(TREIN).filter(t => w.trein?.[t]).map(t => TREIN[t]).join(', ') || '-', w.aso ? 'Apto' : '-', { content:'', sig:w.ass, em:w.em }])
+        Object.keys(TREIN).filter(t => w.trein?.[t]).map(t => TREIN[t]).join(', ') || '-', (w.aso ? 'Apto' : '-') + Object.keys(TREIN).filter(t => w.asoNr?.[t]).map(t => '\nApto ' + TREIN[t]).join(''), { content:'', sig:w.ass, em:w.em }])
         : [[{ content:'Nenhum executante incluído', colSpan:7 }]],
-      columnStyles:{ 2:{cellWidth:24}, 3:{cellWidth:17}, 4:{cellWidth:22}, 5:{cellWidth:11, halign:'center'}, 6:{cellWidth:44} },
+      columnStyles:{ 2:{cellWidth:24}, 3:{cellWidth:17}, 4:{cellWidth:22}, 5:{cellWidth:17, halign:'center'}, 6:{cellWidth:44} },
       didParseCell: d => { if(d.section === 'body' && d.column.index === 6 && d.cell.raw && d.cell.raw.sig !== undefined) d.cell.styles.minCellHeight = SIGH; },
       didDrawCell: d => { if(d.section === 'body' && d.column.index === 6 && d.cell.raw && d.cell.raw.sig !== undefined) desenharAss(d, d.cell.raw.sig, d.cell.raw.em); } });
 

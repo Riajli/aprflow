@@ -613,3 +613,20 @@ ul.det li+li{margin-top:2px}
 .sheet .emps.um table.emp tr th:not(.faixa),.sheet > table.emp tr th:not(.faixa){width:20%}
 @media (max-width:700px){ .sheet .emps{grid-template-columns:1fr} }
 @media print{ .sheet .emps{grid-template-columns:1fr 1fr} .sheet .emps.um{grid-template-columns:1fr} .sheet table.emp th.faixa{-webkit-print-color-adjust:exact;print-color-adjust:exact} }
+
+/* Versão 4.6: atividade sugerida pelos riscos (aba 03) e treinamento + ASO por NR (aba 05) */
+.napb{border:1px solid var(--bad);border-left:4px solid var(--bad);border-radius:8px;background:var(--bad-soft);padding:10px 12px;display:grid;gap:6px}
+.napb>b{color:var(--bad);font:700 15px/1.25 var(--f-display)}
+.napb p{margin:0;font-size:13.5px;color:var(--ink)}
+.napb .bt{display:flex;gap:8px;flex-wrap:wrap}
+.naok{border:1px dashed var(--line);border-radius:8px;background:var(--surface);padding:10px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.naok span{flex:1;min-width:200px;color:var(--muted);font-size:13.5px}
+.naok span b{color:var(--ink)}
+.tile.na{opacity:.55;border-style:dashed}
+.btn.bad-t{color:var(--bad);border-color:var(--bad);background:var(--surface)}
+.nrq{border:1px solid var(--warn);border-left:4px solid var(--warn);border-radius:8px;padding:8px 10px;background:var(--warn-soft);display:grid;gap:2px}
+.nrq.ok{border-color:var(--ok);background:var(--ok-soft)}
+.nrh{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.nrh b{font:700 15px/1.2 var(--f-display)}
+.nrh span{font-size:12.5px;color:var(--muted)}
+.nrq .ck{padding:4px 2px}
