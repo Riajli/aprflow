@@ -44,6 +44,7 @@
   const vis = d => d.status === 'liberada' && d.validade_fim && new Date(d.validade_fim) < new Date() ? 'vencida' : d.status;
   const stLabel = s => ({...ST, vencida:'Vencida'})[s] || s;
   const IC = {
+    dup: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
     pdf: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 11v6M9.5 14.5 12 17l2.5-2.5"/></svg>',
     lixo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
     volta: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>'
@@ -84,7 +85,7 @@
           <td class="c-dt muted">${lixeira ? `${fmtDH(d.excluido_em)}<br>Apagado de vez em ${diasRestantes(d)} dia(s)` : fmtDH(d.atualizado_em)}</td>
           <td class="c-acts">${lixeira
             ? (podeRestaurar(d) ? `<button class="ibtn" data-rest="${d.id}" title="Restaurar" aria-label="Restaurar ${esc(d.numero)}">${IC.volta}</button>` : '')
-            : `<button class="ibtn" data-pdf="${d.id}" title="Baixar PDF" aria-label="Baixar PDF de ${esc(d.numero)}">${IC.pdf}</button>${podeApagar(d) ? `<button class="ibtn del" data-del="${d.id}" title="Enviar para a lixeira" aria-label="Enviar ${esc(d.numero)} para a lixeira">${IC.lixo}</button>` : ''}`}</td></tr>`; }).join('')}
+            : `${API.pode(U,'editar') ? `<button class="ibtn dup" data-dup="${d.id}" title="Duplicar para nova APR" aria-label="Duplicar ${esc(d.numero)} para nova APR">${IC.dup}</button>` : ''}<button class="ibtn" data-pdf="${d.id}" title="Baixar PDF" aria-label="Baixar PDF de ${esc(d.numero)}">${IC.pdf}</button>${podeApagar(d) ? `<button class="ibtn del" data-del="${d.id}" title="Enviar para a lixeira" aria-label="Enviar ${esc(d.numero)} para a lixeira">${IC.lixo}</button>` : ''}`}</td></tr>`; }).join('')}
         </tbody></table></div>`;
       atualizarSelecao();
     } catch(e){
@@ -97,7 +98,8 @@
     if(t.id === 'selTodos'){ docs.forEach(d => t.checked ? sel.add(d.id) : sel.delete(d.id)); el('lista').querySelectorAll('[data-sel]').forEach(c => c.checked = t.checked); atualizarSelecao(); return; }
     if(t.dataset && t.dataset.sel){ t.checked ? sel.add(t.dataset.sel) : sel.delete(t.dataset.sel); atualizarSelecao(); return; }
     if(t.closest('.c-sel')) return;
-    const bPdf = t.closest('[data-pdf]'), bDel = t.closest('[data-del]'), bRest = t.closest('[data-rest]');
+    const bPdf = t.closest('[data-pdf]'), bDel = t.closest('[data-del]'), bRest = t.closest('[data-rest]'), bDup = t.closest('[data-dup]');
+    if(bDup) return duplicarDoc(docs.find(d => d.id === bDup.dataset.dup), bDup);
     if(bPdf) return baixarUm(bPdf.dataset.pdf, bPdf);
     if(bDel) return abrirExclusao(docs.find(d => d.id === bDel.dataset.del));
     if(bRest) return restaurar(docs.find(d => d.id === bRest.dataset.rest));
@@ -105,6 +107,14 @@
     if(tr){ if(lixeira){ API.toast('Restaure o documento para abri-lo.'); return; } location.hash = `#/doc/${tr.dataset.id}`; }
   });
   el('lista').addEventListener('keydown', e => { if(e.target.matches('input,button')) return; const tr = e.target.closest('tr[data-id]'); if(tr && e.key === 'Enter' && !lixeira) location.hash = `#/doc/${tr.dataset.id}`; });
+
+  /* ---------- Duplicar ---------- */
+  async function duplicarDoc(d, b){
+    if(!d) return;
+    b.disabled = true;
+    try { const r = await API.call('duplicar_documento', { p_id: d.id }); API.toast(`${r.numero} criado a partir de ${d.numero}.`); location.hash = `#/doc/${r.id}`; }
+    catch(e){ API.toast(e.message, 'bad'); b.disabled = false; }
+  }
 
   /* ---------- PDF ---------- */
   function baixarBlob(blob, nome){

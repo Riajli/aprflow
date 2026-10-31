@@ -815,6 +815,9 @@ declare u public.usuarios := public._sessao(p_token); o public.documentos := pub
 begin
   perform public._exigir(u, 'editar');
   nd := o.dados - 'enc' - 'lib' - 'suspensoes';
+  -- a nova APR é elaborada hoje; a previsão de execução fica em branco
+  nd := jsonb_set(nd, '{id}', coalesce(nd->'id','{}'::jsonb)
+          || jsonb_build_object('elaboracao', to_char(now() at time zone 'America/Sao_Paulo','YYYY-MM-DD'), 'previsao', ''), true);
   if jsonb_typeof(nd->'equipe') = 'array' then
     for i in 0 .. jsonb_array_length(nd->'equipe') - 1 loop
       nd := jsonb_set(nd, array['equipe', i::text, 'ass'], 'null'::jsonb);

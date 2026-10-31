@@ -192,3 +192,9 @@ Regras:
 - Catálogo de riscos revisado (50 riscos), ligações com as atividades críticas, treinamentos e EPI conforme a planilha de 31/10/2026. Riscos e EPI em ordem alfabética.
 - Aba 03: atividade sugerida pelos riscos e não marcada vira pendência; sai marcando a atividade ou clicando "Não se aplica" (registra quem e quando). O documento e o PDF mostram as atividades "Não se aplica". O servidor confere na liberação.
 - Aba 05: para cada treinamento exigido pelos riscos ou atividades (NR-35, NR-10, NR-33), cada executante precisa de "Treinamento válido" e "ASO válido e apto para a NR". O servidor confere na liberação.
+
+## Versão 4.7 (faixa de situação e duplicar na lista)
+
+- Depois da liberação, uma faixa fixa abaixo das abas mostra a situação em todas as abas, sem sair da tela ao rolar: verde (liberada, com o tempo restante), amarela (menos de 1 hora), vermelha (suspensa, com o motivo), vermelho-escuro (vencida) e cinza (encerrada). Tocar na faixa leva à aba 07.
+- As abas 07 e 08 abrem com o bloco da situação em destaque e os botões Suspender ou Retomar maiores.
+- Lista de documentos: ícone "Duplicar para nova APR" em cada documento, só para técnico, gestor e administrador. A cópia vem sem assinaturas, conferências, liberação, suspensões e encerramento, com a data de elaboração de hoje.

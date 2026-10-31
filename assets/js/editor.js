@@ -826,13 +826,44 @@ function fimLib(){
   return `<div class="action fim"><div class="t"><b>${b?`${b} pendência${b>1?'s':''} impede${b>1?'m':''} a liberação`:'Pronta para liberar'}</b><span>${b?'Resolva os itens em vermelho. A liberação registra data e hora e bloqueia a edição da APR.':'Ao liberar, a validade começa agora e vai até 12 horas depois (horário de Brasília). A APR fica bloqueada para edição.'}</span></div>${podeU('liberar')?`<button class="btn pri big" data-act="liberar" ${b||!libAberta()?'disabled':''}>Liberar PT</button>`:'<span class="hint" style="margin:0">Seu perfil não libera PT. A conferência e a liberação são feitas pelo liberador.</span>'}</div>`;
 }
 /* Barra de ação depois da liberação (topo das abas Liberação e Encerramento) */
+/* Tempo restante até o fim da validade, em texto curto */
+function restante(){ const f=state.meta.validadeFim||state.lib.fim; if(!f) return null; const ms=new Date(f)-new Date(); if(ms<=0) return {ms:0,txt:'0 min'};
+  const h=Math.floor(ms/36e5), m=Math.floor(ms%36e5/6e4); return {ms, txt: h?`${h}h ${pad(m)}min`:`${m} min`}; }
+const fimCurto = () => fmtDH(state.meta.validadeFim||state.lib.fim).slice(0,16).replace(/\/\d{4}/,'');
+const ultSusp = () => (state.suspensoes||[]).slice(-1)[0];
+const IC_OK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>';
+const IC_PAUSA='<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+/* Faixa fixa de situação, abaixo das abas (não sai da tela ao rolar) */
+function faixaHTML(){
+  const st=statusVis(); if(state.meta.status==='rascunho') return '';
+  const r=restante(), u=ultSusp();
+  if(st==='liberada'){ const av=r && r.ms<36e5;
+    return `<button type="button" class="strip ${av?'s-av':'s-lib'}" data-act="irAcoes">${av?'⚠ PT LIBERADA · VALIDADE ACABANDO':'✓ PT LIBERADA · TRABALHO AUTORIZADO'} <small>restam ${r?r.txt:'—'} · até ${fimCurto()}</small></button>`; }
+  if(st==='suspensa') return `<button type="button" class="strip s-sus" data-act="irAcoes">⏸ PT SUSPENSA · TRABALHO PARADO <small>${u?`Motivo: ${esc(u.susp_motivo)} · ${fmtDH(u.susp_em).slice(11)} por ${esc(u.susp_por)}`:'Confira o motivo na aba 07'}</small></button>`;
+  if(st==='vencida') return `<button type="button" class="strip s-venc" data-act="irAcoes">✕ PT VENCIDA · TRABALHO NÃO AUTORIZADO <small>venceu em ${fimCurto()} · encerre e emita nova APR</small></button>`;
+  if(st==='encerrada') return `<button type="button" class="strip s-enc" data-act="irAcoes">■ PT ENCERRADA <small>em ${fmtDH(state.meta.encerradaEm)} · documento finalizado</small></button>`;
+  if(st==='cancelada') return `<button type="button" class="strip s-enc" data-act="irAcoes">■ DOCUMENTO CANCELADO <small>consulte o motivo no histórico</small></button>`;
+  return '';
+}
+function renderFaixa(){ const el=$('stStrip'); if(!el) return; const h=state?faixaHTML():''; if(el.innerHTML!==h) el.innerHTML=h;
+  const tm=document.querySelector('#panel [data-restante]'); const r=state&&restante(); if(tm && r) tm.textContent=r.txt; }
+setInterval(()=>{ if(state && ['liberada','suspensa'].includes(state.meta.status)) renderFaixa(); }, 30000);
+/* Bloco de situação no topo das abas 07 e 08 depois da liberação */
 function actionBar(){
-  const st=statusVis();
-  if(st==='liberada'||st==='vencida') return `<div class="action"><div class="t"><b>${st==='vencida'?'PT vencida':'PT liberada'}</b><span>${validadeTxt()}. Qualquer integrante pode suspender o trabalho se as condições mudarem.</span></div>${podeU('suspender')?`${inp('lib.motivo','Motivo da suspensão',{req:1,cls:'',ph:'Ex.: início de chuva forte'})}<button class="btn warn" data-act="suspender">Suspender</button>`:''}</div>`;
-  if(st==='suspensa'){ const u=(state.suspensoes||[]).slice(-1)[0];
-    return `<div class="action"><div class="t"><b>PT suspensa</b><span>${u?`Suspensa em ${fmtDH(u.susp_em)} por ${esc(u.susp_por)}: ${esc(u.susp_motivo)}. `:''}${validadeTxt()}. Confira as condições no local antes de retomar.</span></div>${podeRetomar()?`<label class="fld"><span>Motivo da retomada / condições conferidas <b class="rq">*</b></span><input type="text" id="motivoRet" maxlength="500" placeholder="Ex.: chuva cessou, área e equipamentos conferidos"></label><button class="btn pri" data-act="retomar">Retomar trabalho</button>`:''}</div>`; }
-  if(st==='cancelada') return `<div class="action"><div class="t"><b>Documento cancelado</b><span>Consulte o motivo no histórico, na aba Documento.</span></div></div>`;
-  if(st==='encerrada') return `<div class="action"><div class="t"><b>PT encerrada</b><span>${validadeTxt()}. Documento finalizado. Consulte a aba Documento.</span></div></div>`;
+  const st=statusVis(), r=restante(), u=ultSusp();
+  const blk=(cls,ic,tit,sub,tm,mid,bd)=>`<div class="stb ${cls}"><div class="top">${ic?`<span class="ic">${ic}</span>`:''}<div class="tt"><b>${tit}</b><span>${sub}</span></div>${tm||''}</div>${mid||''}${bd?`<div class="bd">${bd}</div>`:''}</div>`;
+  if(st==='liberada'){ const av=r && r.ms<36e5, f=new Date(state.meta.validadeFim), i=new Date(state.meta.validadeIni||state.meta.liberadaEm), pct=Math.max(0,Math.min(100,(f-new Date())/(f-i)*100));
+    return blk(av?'av':'lib',IC_OK,av?'PT LIBERADA · VALIDADE ACABANDO':'PT LIBERADA · TRABALHO AUTORIZADO',validadeTxt(),
+      `<div class="tm"><big data-restante>${r?r.txt:'—'}</big><small>restantes de validade</small></div>`,
+      `<div class="bar"><i style="width:${pct.toFixed(0)}%"></i></div>`,
+      `<div class="info">Se as condições mudarem (chuva, vento, pessoa não autorizada, falha de equipamento), <b>qualquer integrante pode suspender o trabalho</b>.</div>${podeU('suspender')?`${inp('lib.motivo','Motivo da suspensão',{req:1,cls:'',ph:'Ex.: início de chuva forte'})}<button class="btn verm big2" data-act="suspender">⏸ Suspender trabalho</button>`:''}`); }
+  if(st==='suspensa') return blk('sus',IC_PAUSA,'PT SUSPENSA · TRABALHO PARADO',`Ninguém pode trabalhar até a retomada. ${validadeTxt()}`,
+      u?`<div class="tm"><big>${fmtDH(u.susp_em).slice(11)}</big><small>suspensa às</small></div>`:'',
+      `<div class="mot"><small>Motivo da suspensão</small><b>${u?esc(u.susp_motivo):'Não registrado'}</b>${u?`<em>Suspensa em ${fmtDH(u.susp_em)} por ${esc(u.susp_por)}</em>`:''}</div>`,
+      podeRetomar()?`<label class="fld"><span>Motivo da retomada / condições conferidas <b class="rq">*</b></span><input type="text" id="motivoRet" maxlength="500" placeholder="Ex.: chuva cessou, área e equipamentos conferidos"></label><button class="btn pri big2" data-act="retomar">▶ Retomar trabalho</button>`:'<div class="info">A retomada é feita por quem pode liberar a PT.</div>');
+  if(st==='vencida') return blk('venc','✕','PT VENCIDA · TRABALHO NÃO AUTORIZADO',`${validadeTxt()}`,'','',`<div class="info">A validade terminou. Encerre a PT na aba 08 e, se precisar continuar o serviço, duplique o documento na lista e emita uma nova APR.</div>`);
+  if(st==='encerrada') return blk('enc','','PT ENCERRADA',`${validadeTxt()} · serviço ${state.enc.situacao==='concluido'?'concluído':'não concluído'}`,'','','');
+  if(st==='cancelada') return blk('enc','','DOCUMENTO CANCELADO','Consulte o motivo no histórico, na aba Documento.','','','');
   return '';
 }
 
@@ -1070,6 +1101,7 @@ function renderChrome(){
   if(bl2){ const ok=libPodeAssinar(); if(!bl2.closest('fieldset[disabled]')) bl2.disabled=!ok; bl2.textContent=`✍ Assinar${ok?'':' (por último)'}`; const n=document.querySelector('#panel [data-lockn]'); if(n) n.hidden=ok; }
   const sl=document.querySelector('#panel .sitl>span');
   if(sl && rasc){ const t=document.createElement('div'); t.innerHTML=topoLib(); sl.replaceWith(t.querySelector('.sitl>span')); }
+  renderFaixa();
   $('docno').textContent = state.meta.numero;
   const chip=$('chip'); chip.className='chip '+st; chip.textContent=ST_LBL[st];
   const nTab = k => k==='enc' ? (rasc?0:PE.length) : P.filter(p=>p.b&&p.tab===k).length;
@@ -1177,6 +1209,7 @@ EDROOT.addEventListener('click', e=>{
   if(a==='pdf') return baixarPDF();
   if(a==='imprimir') return window.print();
   if(a==='duplicar') return duplicar();
+  if(a==='irAcoes'){ if(cur!=='lib') go('lib'); else $('panel').scrollTop=0; return; }
   if(a==='cancelar'){
     if(armed!=='cancelar'){ armed='cancelar'; b.textContent='Confirmar cancelamento'; setTimeout(()=>{ if(armed==='cancelar'){ armed=null; b.textContent='Cancelar documento'; } },4000); return; }
     armed=null; const m=($('motivoCancel')||{}).value||''; if(!m.trim()){ API.toast('Informe o motivo do cancelamento.','bad'); return; }
