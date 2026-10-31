@@ -1,0 +1,5 @@
+Bibliotecas usadas pelo APRFlow, hospedadas no próprio site (mesmas versões de antes, que vinham do cdnjs):
+- qrcode.min.js ............ qrcodejs 1.0.0 (MIT) – QR code do documento
+- jspdf.umd.min.js ......... jsPDF 2.5.1 (MIT) – geração do PDF
+- jspdf.plugin.autotable.min.js  jspdf-autotable 3.8.2 (MIT) – tabelas do PDF
+- jszip.min.js ............. JSZip 3.10.1 (MIT ou GPLv3) – download de vários PDFs em ZIP
